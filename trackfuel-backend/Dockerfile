@@ -20,6 +20,9 @@ ENV NODE_ENV=production
 ENV PORT=8086
 ENV UPLOAD_DIR=/app/uploads
 WORKDIR /app
+
+# su-exec lets the entrypoint drop from root → node cleanly (PID 1)
+RUN apk add --no-cache su-exec
   
 COPY package*.json ./
   
@@ -28,9 +31,13 @@ RUN npm ci --omit=dev --no-audit --no-fund
 COPY --from=builder /app/src ./src
 
 RUN mkdir -p /app/uploads/pleins && chown -R node:node /app
-USER node
-  
+
+# Custom entrypoint: fixes bind-mount permissions, then execs as 'node'
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 8086
-  
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "src/server.js"]
   
