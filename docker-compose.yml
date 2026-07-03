@@ -22,6 +22,7 @@ services:
   app:
     build: ./trackfuel-backend
     container_name: projet-hermenio-app
+    user: "root"
     restart: unless-stopped
     ports:
       - "8086:8086"
