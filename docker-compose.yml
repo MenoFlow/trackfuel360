@@ -1,0 +1,64 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: projet-hermenio-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hermenio_db}
+      MYSQL_USER: ${MYSQL_USER:-hermenio_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hermenio_pass}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./trackfuel-backend/docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -prootpass123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: ./trackfuel-backend
+    container_name: projet-hermenio-app
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      NODE_ENV: production
+      PORT: 8086
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-hermenio_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-hermenio_pass}
+      DB_NAME: ${MYSQL_DATABASE:-hermenio_db}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8087,http://92.112.181.198:8087,https://trackfuel360.com}
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./trackfuel-backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8086/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./trackfuel-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8086}
+    container_name: projet-hermenio-frontend
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  db_data:

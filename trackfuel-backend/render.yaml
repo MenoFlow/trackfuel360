@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: trackfuel360-backend
+    env: node
+    plan: starter
+    buildCommand: "npm ci"
+    startCommand: "npm start"

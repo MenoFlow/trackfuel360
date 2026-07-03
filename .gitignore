@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+coverage/
+**/dist/
+**/dist-ssr/
+**/build/
+**/coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime / generated files
+trackfuel-backend/uploads/
+trackfuel-backend/temp/
+trackfuel-backend/tmp/
+*.pid
+*.seed
+*.pid.lock
+vite.config.ts.timestamp-*.mjs
+**/vite.config.ts.timestamp-*.mjs
+
+# Cache
+.cache/
+.eslintcache
+.vite/
+**/.vite/
+.turbo/
+.parcel-cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Package manager
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# Test / tooling artifacts
+playwright-report/
+test-results/
+*.tsbuildinfo

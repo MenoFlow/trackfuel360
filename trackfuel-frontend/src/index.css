@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+.leaflet-container {
+  z-index: 0 !important;
+} 
+
+.app-safe-bottom {
+  padding-bottom: max(2rem, env(safe-area-inset-bottom), var(--desktop-bottom-reserve, 0px));
+}
+
+input[type="date"],
+input[type="datetime-local"] {
+  padding-right: 2.5rem;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.dark input[type="date"],
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+  opacity: 0.95;
+}
+
+@media (min-width: 768px) {
+  .app-safe-bottom {
+    --desktop-bottom-reserve: 2.75rem;
+  }
+}
+
+@keyframes accordion-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    /* Couleurs primaires - bleu foncé professionnel */
+    --primary: 210 90% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Couleurs secondaires - gris clair */
+    --secondary: 210 15% 96%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 210 15% 96%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 210 90% 95%;
+    --accent-foreground: 210 90% 48%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 210 90% 48%;
+
+    --radius: 0.5rem;
+    
+    /* Couleurs personnalisées pour TrackFuel360 */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+
+
+
+            /* Fuel brand colors */
+            --primary1: 215 100% 35%; /* Deep fuel blue */
+            --primary-foreground1: 0 0% 98%;
+            --primary-glow1: 215 100% 50%;
+        
+            /* Economy green */
+        
+            --secondary1: 155 65% 45%; 
+            --secondary-foreground1: 0 0% 98%;
+            --secondary-glow1: 155 65% 60%;
+        
+            /* Neutral tones */
+            --muted1: 215 20% 95%;
+            --muted-foreground1: 215 15% 45%;
+        
+            /* Warning system */
+            --accent1: 35 100% 55%; /* Fuel orange */
+            --accent-foreground1: 0 0% 98%;
+            --accent-glow1: 35 100% 70%;
+        
+            /* Critical alert */
+            --destructive1: 0 85% 60%;
+            --destructive-foreground1: 0 0% 98%;
+            --destructive-glow1: 0 85% 75%;
+        
+            --muted1: 215 20% 95%;
+            --muted-foreground1: 215 15% 45%;
+    
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "projet-mvp",
+  "scripts": {
+    "start": "node src/server.js"
+  }
+}
