@@ -580,7 +580,7 @@
   },
   "login": {
     "title": "Connexion",
-    "connectToAccess": "Connectez-vous pour accéder à votre tableau de bord",
+    "connectToAccess": "Connectez vous pour accéder à votre tableau de bord",
     "email": "Adresse email",
     "emailPlaceholder": "exemple@trackfuel.com",
     "password": "Mot de passe",
