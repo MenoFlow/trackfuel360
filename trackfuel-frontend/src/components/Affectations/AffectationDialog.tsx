@@ -1,5 +1,5 @@
 // src/components/Affectations/AffectationDialog.tsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,16 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 import { useCreateAffectation, useUpdateAffectation } from '@/hooks/useAffectations';
 import { useVehicules } from '@/hooks/useVehicules';
 import { useUsers } from '@/hooks/useUsers';
 import { Affectation } from '@/types';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { CalendarWrapper } from '../ui/calendar-wrapper';
+import { AvailabilityConflictDialog } from '@/components/common/AvailabilityConflictDialog';
 
 interface AffectationDialogProps {
   open: boolean;
@@ -38,6 +35,14 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+const toDateTimeLocal = (date: Date) => {
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 16);
+};
+
+const addHours = (date: Date, hours: number) => new Date(date.getTime() + hours * 60 * 60 * 1000);
+
 export const AffectationDialog = ({ 
   open, 
   onOpenChange, 
@@ -49,6 +54,7 @@ export const AffectationDialog = ({
   const { data: chauffeurs } = useUsers();
   const createAffectation = useCreateAffectation();
   const updateAffectation = useUpdateAffectation();
+  const [availabilityConflict, setAvailabilityConflict] = useState<any>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -56,7 +62,7 @@ export const AffectationDialog = ({
       vehicule_id: 0,
       chauffeur_id: 0,
       date_debut: new Date(),
-      date_fin: new Date(),
+      date_fin: addHours(new Date(), 1),
     },
   });
 
@@ -76,10 +82,13 @@ export const AffectationDialog = ({
         vehicule_id: 0,
         chauffeur_id: 0,
         date_debut: new Date(),
-        date_fin: new Date(),
+        date_fin: addHours(new Date(), 1),
       });
     }
+    setAvailabilityConflict(null);
   }, [open, affectation, form]);
+
+  const dateDebut = form.watch('date_debut');
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -103,6 +112,11 @@ export const AffectationDialog = ({
       onSuccess?.();
 
     } catch (error) {
+      const apiError = error as Error & { availability?: any; code?: string };
+      if (apiError.availability) {
+        setAvailabilityConflict(apiError.availability);
+        return;
+      }
       toast.error(
         affectation 
           ? t('assignments.errorUpdate') 
@@ -190,30 +204,14 @@ export const AffectationDialog = ({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>{t('assignments.startDate')}</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? format(field.value, 'PPP') : t('assignments.selectDate')}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50 dark:text-white dark:opacity-90" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarWrapper
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      value={toDateTimeLocal(field.value)}
+                      onChange={(event) => field.onChange(new Date(event.target.value))}
+                      max={dateDebut && form.watch('date_fin') ? toDateTimeLocal(form.watch('date_fin')) : undefined}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -226,30 +224,14 @@ export const AffectationDialog = ({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>{t('assignments.endDate')}</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? format(field.value, 'PPP') : t('assignments.selectDate')}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50 dark:text-white dark:opacity-90" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarWrapper
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      value={toDateTimeLocal(field.value)}
+                      onChange={(event) => field.onChange(new Date(event.target.value))}
+                      min={dateDebut ? toDateTimeLocal(dateDebut) : undefined}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -271,6 +253,12 @@ export const AffectationDialog = ({
             </DialogFooter>
           </form>
         </Form>
+
+        <AvailabilityConflictDialog
+          open={Boolean(availabilityConflict)}
+          onOpenChange={(isOpen) => !isOpen && setAvailabilityConflict(null)}
+          availability={availabilityConflict}
+        />
       </DialogContent>
     </Dialog>
   );

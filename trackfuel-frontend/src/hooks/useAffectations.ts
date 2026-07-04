@@ -5,6 +5,14 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
 const API_BASE_URL = API_BASE+'/api/affectations';
 
+const buildApiError = async (res: Response, fallback: string) => {
+  const err = await res.json().catch(() => ({ error: fallback }));
+  const apiError = new Error(err.error || fallback) as Error & { availability?: any; code?: string };
+  apiError.availability = err.availability;
+  apiError.code = err.code;
+  return apiError;
+};
+
 // GET ALL + FILTER
 export const useAffectations = (chauffeurId?: number, vehiculeId?: number) => {
   return useQuery({
@@ -50,8 +58,7 @@ export const useCreateAffectation = () => {
         body: JSON.stringify(newAffectation),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Erreur serveur' }));
-        throw new Error(err.error || 'Échec création');
+        throw await buildApiError(res, 'Échec création');
       }
       return res.json();
     },
@@ -73,8 +80,7 @@ export const useUpdateAffectation = () => {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Erreur serveur' }));
-        throw new Error(err.error || 'Échec mise à jour');
+        throw await buildApiError(res, 'Échec mise à jour');
       }
       return res.json();
     },

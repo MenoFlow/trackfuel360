@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -167,6 +168,7 @@ const Affectations = () => {
                         <TableRow>
                           <TableHead>{t('assignments.vehicle')}</TableHead>
                           <TableHead>{t('assignments.driver')}</TableHead>
+                          <TableHead>Origine</TableHead>
                           <TableHead>{t('assignments.startDate')}</TableHead>
                           <TableHead>{t('assignments.endDate')}</TableHead>
                           <TableHead className="text-right">{t('common.actions')}</TableHead>
@@ -180,6 +182,14 @@ const Affectations = () => {
                             </TableCell>
                             <TableCell>{getChauffeurName(a.chauffeur_id)}</TableCell>
                             <TableCell>
+                              <Badge variant={a.source === 'mission' ? 'default' : 'secondary'}>
+                                {a.source === 'mission' ? 'Mission' : 'Manuelle'}
+                              </Badge>
+                              {a.mission_destination && (
+                                <p className="mt-1 text-xs text-muted-foreground">{a.mission_destination}</p>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               {format(new Date(a.date_debut), 'dd/MM/yyyy HH:mm')}
                             </TableCell>
                             <TableCell>
@@ -189,20 +199,26 @@ const Affectations = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditAffectation(a)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteClick(a.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {a.source !== 'mission' ? (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleEditAffectation(a)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteClick(a.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Créée par mission</span>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

@@ -126,8 +126,13 @@ export interface Affectation {
   id: number;
   vehicule_id: number;
   chauffeur_id: number;
+  mission_id?: number | null;
+  source?: 'manuelle' | 'mission';
   date_debut: string;
   date_fin: string;
+  mission_destination?: string | null;
+  mission_motif?: string | null;
+  mission_statut?: string | null;
   created_at?: string;
 }
 

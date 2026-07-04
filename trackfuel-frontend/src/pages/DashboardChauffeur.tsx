@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useChauffeurAccess } from '@/hooks/useChauffeurAccess';
 import { useVehicules } from '@/hooks/useVehicules';
 import { usePleins } from '@/hooks/usePleins';
@@ -7,7 +9,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Car, Fuel, Route, AlertTriangle, Plus, FileEdit, LogOut } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Car, Fuel, Route, AlertTriangle, Plus, FileEdit, ClipboardList, Check, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -16,8 +35,20 @@ import { MotionWrapper } from '@/components/Layout/MotionWrapper';
 import Header from '@/components/Chauffeur/Header';
 import { generateAlertes } from '@/lib/services/alerteService';
 import { useAggregatedData } from '@/lib/mockData';
+import { toast } from 'sonner';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
+
+const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
+  demande: { label: 'En attente', className: 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30' },
+  validee: { label: 'Acceptée', className: 'bg-blue-500 hover:bg-blue-600 text-white' },
+  rejetee: { label: 'Refusée', className: 'bg-red-500 hover:bg-red-600 text-white' },
+  en_cours: { label: 'En cours', className: 'bg-emerald-500 hover:bg-emerald-600 text-white' },
+  terminee: { label: 'Terminée', className: 'bg-slate-200 dark:bg-slate-700' },
+};
 
 export default function DashboardChauffeur() {
+  const queryClient = useQueryClient();
   const { vehicules, trajets, pleins, niveauxCarburant, geofences, pleinExifMetadata, traceGPSPoints, params, users, pleinOcrData } = useAggregatedData();
 
   const navigate = useNavigate();
@@ -40,6 +71,39 @@ export default function DashboardChauffeur() {
   const { data: allPleins, isLoading: pleinsLoading } = usePleins();
   const { data: allTrajets, isLoading: trajetsLoading } = useTrajets();
   const { data: affectations } = useAffectations();
+  const { data: missions = [], isLoading: missionsLoading } = useQuery({
+    queryKey: ['missions'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/missions`);
+      if (!res.ok) throw new Error('Erreur chargement missions');
+      return res.json();
+    },
+  });
+  const [rejectMission, setRejectMission] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const updateMissionStatus = useMutation({
+    mutationFn: async ({ id, statut, motif_rejet }: { id: number; statut: string; motif_rejet?: string }) => {
+      const res = await fetch(`${API_BASE}/api/missions/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut, motif_rejet }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Mise à jour impossible' }));
+        throw new Error(err.error || 'Mise à jour impossible');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['affectations'] });
+      setRejectMission(null);
+      setRejectReason('');
+      toast.success('Mission mise à jour');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   if (!currentUser) {
     return null;
@@ -54,8 +118,9 @@ export default function DashboardChauffeur() {
   const mesAlertes = allAlertes ? allAlertes.filter(a => 
     a.chauffeur_id === currentUser.id
   ) : [];
+  const mesMissions = missions.filter((mission: any) => Number(mission.chauffeur_id) === Number(currentUser.id));
 
-  const isLoading = vehiculesLoading || pleinsLoading || trajetsLoading;
+  const isLoading = vehiculesLoading || pleinsLoading || trajetsLoading || missionsLoading;
 
   if (isLoading) {
     return (
@@ -184,6 +249,89 @@ export default function DashboardChauffeur() {
           </MotionWrapper>
         </motion.div>
 
+        {/* Ordres de mission */}
+        <MotionWrapper variant="slideUp" delay={0.25}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Ordre de mission
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {mesMissions.length > 0 ? (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Destination</TableHead>
+                        <TableHead>Véhicule affecté</TableHead>
+                        <TableHead>Période</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {mesMissions.map((mission: any) => {
+                        const config = STATUT_CONFIG[mission.statut] || STATUT_CONFIG.demande;
+                        return (
+                          <TableRow key={mission.id}>
+                            <TableCell className="font-medium">{mission.destination}</TableCell>
+                            <TableCell>{mission.immatriculation || '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {mission.date_depart ? new Date(mission.date_depart).toLocaleString('fr-FR') : '—'}
+                              {' - '}
+                              {mission.date_retour_prevue ? new Date(mission.date_retour_prevue).toLocaleString('fr-FR') : '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={config.className}>{config.label}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {mission.statut === 'demande' ? (
+                                <div className="flex justify-end gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                    title="Accepter"
+                                    onClick={() => updateMissionStatus.mutate({ id: mission.id, statut: 'validee' })}
+                                    disabled={updateMissionStatus.isPending}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-red-600 hover:bg-red-50"
+                                    title="Refuser"
+                                    onClick={() => {
+                                      setRejectMission(mission);
+                                      setRejectReason('');
+                                    }}
+                                    disabled={updateMissionStatus.isPending}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : mission.motif_rejet ? (
+                                <span className="text-sm text-destructive">{mission.motif_rejet}</span>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">Aucune mission ne vous est affectée.</p>
+              )}
+            </CardContent>
+          </Card>
+        </MotionWrapper>
+
         {/* Mes véhicules */}
         <MotionWrapper variant="slideUp" delay={0.3}>
           <Card>
@@ -252,6 +400,37 @@ export default function DashboardChauffeur() {
           </MotionWrapper>
         )}
       </div>
+
+      <Dialog open={Boolean(rejectMission)} onOpenChange={(open) => !open && setRejectMission(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Justification du refus</DialogTitle>
+            <DialogDescription>
+              Indiquez pourquoi vous refusez cette mission.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={rejectReason}
+            onChange={(event) => setRejectReason(event.target.value)}
+            placeholder="Ex: indisponibilité, contrainte médicale, information manquante..."
+            className="min-h-28"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectMission(null)}>Annuler</Button>
+            <Button
+              variant="destructive"
+              onClick={() => updateMissionStatus.mutate({
+                id: rejectMission.id,
+                statut: 'rejetee',
+                motif_rejet: rejectReason.trim(),
+              })}
+              disabled={updateMissionStatus.isPending || !rejectReason.trim()}
+            >
+              Refuser
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

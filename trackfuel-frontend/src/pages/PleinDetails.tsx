@@ -54,7 +54,9 @@ const PleinDetails = () => {
   const vehicule = vehicules?.find((v) => v.id === plein?.vehicule_id);
   const chauffeur = users?.find((u) => u.id === plein?.chauffeur_id);
   const metadata = !metadataLoading && exifMetadata?.length ? exifMetadata[0] : null;
-  const ocrData = !metadataLoading && ocr?.length ? ocr[0] : null;
+  const ocrData = !ocrDataLoading && ocr?.length ? ocr[0] : null;
+  const ocrConfidence = Number(ocrData?.ocr_confidence);
+  const hasOcrConfidence = Number.isFinite(ocrConfidence);
   // DATES SÉCURISÉES
   const pleinDate = plein?.date ? new Date(plein.date) : null;
   const exifDateStr =
@@ -418,14 +420,14 @@ const PleinDetails = () => {
                     <p className="text-muted-foreground text-xs">Confiance OCR</p>
                     <Badge
                       variant={
-                        !ocrData.ocr_confidence || ocrData.ocr_confidence < 70
+                        !hasOcrConfidence || ocrConfidence < 70
                           ? "destructive"
-                          : ocrData.ocr_confidence < 90
+                          : ocrConfidence < 90
                           ? "secondary"
                           : "default"
                       }
                     >
-                      {ocrData.ocr_confidence ? `${ocrData.ocr_confidence.toFixed(0)}%` : "—"}
+                      {hasOcrConfidence ? `${ocrConfidence.toFixed(0)}%` : "—"}
                     </Badge>
                   </div>
                 </div>

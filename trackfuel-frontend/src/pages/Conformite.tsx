@@ -29,6 +29,7 @@ import { FileCheck, Plus, Filter, AlertTriangle, ShieldCheck, Clock } from 'luci
 import { MotionWrapper } from '@/components/Layout/MotionWrapper';
 import { toast } from 'sonner';
 import { useVehicules } from '@/hooks/useVehicules';
+import { getCurrentRole } from '@/lib/accessControl';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -109,6 +110,8 @@ const addMonthsToDate = (dateStr: string, months: number) => {
 
 const Conformite = () => {
   const queryClient = useQueryClient();
+  const currentRole = getCurrentRole();
+  const canManageDocuments = currentRole !== 'auditor';
   const { data: vehicules = [] } = useVehicules();
   const { data: chauffeurs = [] } = useQuery({
     queryKey: ['chauffeurs'],
@@ -186,6 +189,11 @@ const Conformite = () => {
 
   const currentRule = DOC_RULES[form.type] || DOC_RULES.assurance;
   const ownerSelected = currentRule.owner === 'vehicule' ? Boolean(form.vehicule_id) : Boolean(form.chauffeur_id);
+  const isDocumentDateInvalid = Boolean(
+    form.delivre_le &&
+    form.expire_le &&
+    new Date(form.expire_le) <= new Date(form.delivre_le)
+  );
   const handleTypeChange = (type: string) => {
     const rule = DOC_RULES[type] || DOC_RULES.assurance;
     setForm((prev: any) => ({
@@ -223,15 +231,17 @@ const Conformite = () => {
                 Assurance, visite technique, documents obligatoires et visites médicales
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all duration-200"
-              onClick={() => { resetForm(); setDialogOpen(true); }}
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter un document
-            </Button>
+            {canManageDocuments && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all duration-200"
+                onClick={() => { resetForm(); setDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter un document
+              </Button>
+            )}
           </div>
         </MotionWrapper>
 
@@ -391,9 +401,11 @@ const Conformite = () => {
             <CardContent className="py-12 text-center">
               <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">Aucun document trouvé</p>
-              <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-2" /> Ajouter un document
-              </Button>
+              {canManageDocuments && (
+                <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-2" /> Ajouter un document
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -496,12 +508,25 @@ const Conformite = () => {
 
             <div className="space-y-2">
               <Label>Date de délivrance</Label>
-              <Input type="date" value={form.delivre_le || ''} onChange={e => handleDeliveryDateChange(e.target.value)} />
+              <Input
+                type="date"
+                value={form.delivre_le || ''}
+                max={form.expire_le || undefined}
+                onChange={e => handleDeliveryDateChange(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Date d'expiration <span className="text-destructive">*</span></Label>
-              <Input type="date" value={form.expire_le || ''} onChange={e => setForm({ ...form, expire_le: e.target.value })} />
+              <Input
+                type="date"
+                value={form.expire_le || ''}
+                min={form.delivre_le || undefined}
+                onChange={e => setForm({ ...form, expire_le: e.target.value })}
+              />
+              {isDocumentDateInvalid && (
+                <p className="text-xs text-destructive">La date d'expiration doit être après la date de délivrance.</p>
+              )}
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -518,7 +543,7 @@ const Conformite = () => {
             </Button>
             <Button
               onClick={() => createDocument.mutate()}
-              disabled={isSubmitting || !form.expire_le || !ownerSelected}
+              disabled={isSubmitting || !form.expire_le || !ownerSelected || isDocumentDateInvalid}
             >
               {isSubmitting ? 'Ajout...' : 'Ajouter le document'}
             </Button>

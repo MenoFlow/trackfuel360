@@ -26,12 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ClipboardList, Plus, Filter, Check, X, Play, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { staggerContainer, staggerItem } from '@/lib/utils/motionVariants';
+import { ClipboardList, Plus, Filter } from 'lucide-react';
 import { MotionWrapper } from '@/components/Layout/MotionWrapper';
 import { toast } from 'sonner';
 import { useVehicules } from '@/hooks/useVehicules';
+import { getCurrentRole } from '@/lib/accessControl';
+import { AvailabilityConflictDialog } from '@/components/common/AvailabilityConflictDialog';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -45,6 +45,8 @@ const STATUT_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
 
 const Missions = () => {
   const queryClient = useQueryClient();
+  const currentRole = getCurrentRole();
+  const canCreateMission = currentRole === 'admin' || currentRole === 'manager';
   const { data: missions = [], isLoading } = useQuery({
     queryKey: ['missions'],
     queryFn: async () => {
@@ -67,6 +69,7 @@ const Missions = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<any>({ date_depart: new Date().toISOString().slice(0, 16) });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availabilityConflict, setAvailabilityConflict] = useState<any>(null);
 
   // Filters
   const [statutFilter, setStatutFilter] = useState('all');
@@ -83,7 +86,12 @@ const Missions = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      if (!response.ok) throw new Error('Creation impossible');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Création impossible' }));
+        const apiError = new Error(err.error || 'Création impossible') as Error & { availability?: any };
+        apiError.availability = err.availability;
+        throw apiError;
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -91,26 +99,16 @@ const Missions = () => {
       setForm({ date_depart: new Date().toISOString().slice(0, 16) });
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['affectations'] });
     },
-    onError: () => toast.error('Erreur lors de la création'),
+    onError: (error: Error & { availability?: any }) => {
+      if (error.availability) {
+        setAvailabilityConflict(error.availability);
+        return;
+      }
+      toast.error(error.message || 'Erreur lors de la création');
+    },
     onSettled: () => setIsSubmitting(false),
-  });
-
-  const updateStatus = useMutation({
-    mutationFn: async ({ id, statut }: { id: number; statut: string }) => {
-      const response = await fetch(`${API_BASE}/api/missions/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut }),
-      });
-      if (!response.ok) throw new Error('Mise a jour impossible');
-      return response.json();
-    },
-    onSuccess: () => {
-      toast.success('Statut mis à jour');
-      queryClient.invalidateQueries({ queryKey: ['missions'] });
-    },
-    onError: () => toast.error('Erreur de mise à jour'),
   });
 
   // Filtering
@@ -126,7 +124,14 @@ const Missions = () => {
 
   const resetForm = () => {
     setForm({ date_depart: new Date().toISOString().slice(0, 16) });
+    setAvailabilityConflict(null);
   };
+
+  const isDateRangeInvalid = Boolean(
+    form.date_depart &&
+    form.date_retour_prevue &&
+    new Date(form.date_retour_prevue) <= new Date(form.date_depart)
+  );
 
   return (
     <MainLayout>
@@ -140,15 +145,17 @@ const Missions = () => {
                 {filtered.length} mission{filtered.length !== 1 ? 's' : ''} • Demandes, validations et suivi
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all duration-200"
-              onClick={() => { resetForm(); setDialogOpen(true); }}
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle mission
-            </Button>
+            {canCreateMission && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 active:scale-95 transition-all duration-200"
+                onClick={() => { resetForm(); setDialogOpen(true); }}
+              >
+                <Plus className="h-4 w-4" />
+                Nouvelle mission
+              </Button>
+            )}
           </div>
         </MotionWrapper>
 
@@ -203,7 +210,7 @@ const Missions = () => {
                         <TableHead>Date départ</TableHead>
                         <TableHead>Motif</TableHead>
                         <TableHead>Statut</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>Justification</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -228,51 +235,12 @@ const Missions = () => {
                             <TableCell>
                               <Badge className={config.className}>{config.label}</Badge>
                             </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex gap-1 justify-end">
-                                {mission.statut === 'demande' && (
-                                  <>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                                      title="Valider"
-                                      onClick={() => updateStatus.mutate({ id: mission.id, statut: 'validee' })}
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 text-red-600 hover:bg-red-50"
-                                      title="Rejeter"
-                                      onClick={() => updateStatus.mutate({ id: mission.id, statut: 'rejetee' })}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                                {mission.statut === 'validee' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs gap-1"
-                                    onClick={() => updateStatus.mutate({ id: mission.id, statut: 'en_cours' })}
-                                  >
-                                    <Play className="h-3 w-3" /> Démarrer
-                                  </Button>
-                                )}
-                                {mission.statut === 'en_cours' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 text-xs gap-1"
-                                    onClick={() => updateStatus.mutate({ id: mission.id, statut: 'terminee' })}
-                                  >
-                                    <CheckCircle2 className="h-3 w-3" /> Terminer
-                                  </Button>
-                                )}
-                              </div>
+                            <TableCell className="max-w-[240px] text-muted-foreground">
+                              {mission.motif_rejet ? (
+                                <span className="text-destructive">{mission.motif_rejet}</span>
+                              ) : (
+                                '—'
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -288,9 +256,11 @@ const Missions = () => {
             <CardContent className="py-12 text-center">
               <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">Aucune mission trouvée</p>
-              <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-2" /> Créer une mission
-              </Button>
+              {canCreateMission && (
+                <Button variant="outline" className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-2" /> Créer une mission
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -371,12 +341,25 @@ const Missions = () => {
 
             <div className="space-y-2">
               <Label>Date de départ <span className="text-destructive">*</span></Label>
-              <Input type="datetime-local" value={form.date_depart || ''} onChange={e => setForm({ ...form, date_depart: e.target.value })} />
+              <Input
+                type="datetime-local"
+                value={form.date_depart || ''}
+                max={form.date_retour_prevue || undefined}
+                onChange={e => setForm({ ...form, date_depart: e.target.value })}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Date retour prévue</Label>
-              <Input type="datetime-local" value={form.date_retour_prevue || ''} onChange={e => setForm({ ...form, date_retour_prevue: e.target.value })} />
+              <Label>Date retour prévue <span className="text-destructive">*</span></Label>
+              <Input
+                type="datetime-local"
+                value={form.date_retour_prevue || ''}
+                min={form.date_depart || undefined}
+                onChange={e => setForm({ ...form, date_retour_prevue: e.target.value })}
+              />
+              {isDateRangeInvalid && (
+                <p className="text-xs text-destructive">La date retour prévue doit être après la date de départ.</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -396,13 +379,19 @@ const Missions = () => {
             </Button>
             <Button
               onClick={() => createMission.mutate()}
-              disabled={isSubmitting || !form.vehicule_id || !form.chauffeur_id || !form.destination || !form.motif}
+              disabled={isSubmitting || !form.vehicule_id || !form.chauffeur_id || !form.destination || !form.motif || !form.date_retour_prevue || isDateRangeInvalid}
             >
               {isSubmitting ? 'Création...' : 'Créer la mission'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AvailabilityConflictDialog
+        open={Boolean(availabilityConflict)}
+        onOpenChange={(isOpen) => !isOpen && setAvailabilityConflict(null)}
+        availability={availabilityConflict}
+      />
     </MainLayout>
   );
 };

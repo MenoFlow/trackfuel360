@@ -182,14 +182,14 @@ const Alertes = () => {
               </div>
               <div className="space-y-2">
                 <Label>{t('reports.vehicle')}</Label>
-                <Select value={vehiculeFilter} onValueChange={setVehiculeFilter}>
+                <Select value={vehiculeFilter} onValueChange={value => { setVehiculeFilter(value); setCurrentPage(1); }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('common.all')}</SelectItem>
                     {vehicules?.map(v => (
-                      <SelectItem key={v.immatriculation} value={v.immatriculation}>{v.immatriculation}</SelectItem>
+                      <SelectItem key={v.id} value={v.id.toString()}>{v.immatriculation}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

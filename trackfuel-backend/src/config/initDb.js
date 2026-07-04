@@ -180,6 +180,61 @@ export async function initDb() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
+    const [affectationMissionColumn] = await connection.execute(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'affectations'
+        AND COLUMN_NAME = 'mission_id'
+    `);
+    if (affectationMissionColumn.length === 0) {
+      await connection.execute(`
+        ALTER TABLE affectations
+        ADD COLUMN mission_id BIGINT NULL AFTER chauffeur_id
+      `);
+    }
+
+    const [affectationSourceColumn] = await connection.execute(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'affectations'
+        AND COLUMN_NAME = 'source'
+    `);
+    if (affectationSourceColumn.length === 0) {
+      await connection.execute(`
+        ALTER TABLE affectations
+        ADD COLUMN source ENUM('manuelle', 'mission') NOT NULL DEFAULT 'manuelle' AFTER mission_id
+      `);
+    }
+
+    const [affectationMissionIndex] = await connection.execute(`
+      SELECT INDEX_NAME
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'affectations'
+        AND INDEX_NAME = 'idx_affectation_mission'
+    `);
+    if (affectationMissionIndex.length === 0) {
+      await connection.execute('ALTER TABLE affectations ADD INDEX idx_affectation_mission (mission_id)');
+    }
+
+    const [affectationMissionFk] = await connection.execute(`
+      SELECT CONSTRAINT_NAME
+      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'affectations'
+        AND COLUMN_NAME = 'mission_id'
+        AND REFERENCED_TABLE_NAME = 'ordres_mission'
+    `);
+    if (affectationMissionFk.length === 0) {
+      await connection.execute(`
+        ALTER TABLE affectations
+        ADD CONSTRAINT fk_affectation_mission
+          FOREIGN KEY (mission_id) REFERENCES ordres_mission(id) ON DELETE SET NULL
+      `);
+    }
+
     // 8. Table maintenance_interventions
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS maintenance_interventions (

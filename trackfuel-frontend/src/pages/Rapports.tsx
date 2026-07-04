@@ -24,6 +24,7 @@ const Rapports = () => {
   const [rapportGenere, setRapportGenere] = useState<RapportData | null>(null);
 
   const { data: currentUser } = useCurrentUser();
+  const isAuditor = currentUser?.role === 'auditor';
   const { data: historique } = useHistoriqueRapports();
   const { vehicules, trajets, pleins, sites, corrections, niveauxCarburant } = useAggregatedData();
   
@@ -160,10 +161,12 @@ const Rapports = () => {
                       <Download className="h-4 w-4 mr-2" />
                       {t('reports.formats.csv')}
                     </Button>
-                    <Button variant="outline" className="w-full justify-start" onClick={handleCopyLink}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      {t('reports.copyLink')}
-                    </Button>
+                    {!isAuditor && (
+                      <Button variant="outline" className="w-full justify-start" onClick={handleCopyLink}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        {t('reports.copyLink')}
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )}

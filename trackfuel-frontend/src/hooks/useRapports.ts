@@ -60,13 +60,15 @@ export const useGenererRapport = (vehicules, sites, trajets, pleins, corrections
       
       console.log('[useRapports] Rapport généré:', rapport.metadata.id);
       
-      // Audit 2026-07-03 / Codex: sauvegarde serveur pour rendre l'historique et les liens partageables.
-      try {
-        await saveRapportToBackend(rapport);
-      } catch (error) {
-        console.warn('[useRapports] Sauvegarde serveur indisponible, fallback IndexedDB:', error);
-        await rapportStorage.cleanupExpiredRapports();
-        await rapportStorage.storeRapport(rapport);
+      if (currentUser?.role !== 'auditor') {
+        // Audit 2026-07-03 / Codex: sauvegarde serveur pour rendre l'historique et les liens partageables.
+        try {
+          await saveRapportToBackend(rapport);
+        } catch (error) {
+          console.warn('[useRapports] Sauvegarde serveur indisponible, fallback IndexedDB:', error);
+          await rapportStorage.cleanupExpiredRapports();
+          await rapportStorage.storeRapport(rapport);
+        }
       }
       
       return rapport;

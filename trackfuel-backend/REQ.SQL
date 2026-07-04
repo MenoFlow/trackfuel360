@@ -90,12 +90,15 @@ CREATE TABLE affectations (
     id INT PRIMARY KEY AUTO_INCREMENT,
     vehicule_id BIGINT NOT NULL,
     chauffeur_id BIGINT NOT NULL,
+    mission_id BIGINT NULL,
+    source ENUM('manuelle', 'mission') NOT NULL DEFAULT 'manuelle',
     date_debut DATETIME NOT NULL,
     date_fin DATETIME NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vehicule_id) REFERENCES vehicules(id) ON DELETE CASCADE,
     FOREIGN KEY (chauffeur_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_vehicule (vehicule_id),
+    INDEX idx_affectation_mission (mission_id),
     INDEX idx_date_debut (date_debut),
     INDEX idx_date_fin (date_fin)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

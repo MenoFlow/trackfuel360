@@ -89,7 +89,6 @@ const ProtectedRoute = ({
   }
 };
 const currentUser = getCurrentUser();
-
 const ModuleGate = ({ module, children }: { module: ModuleCode; children: React.ReactNode }) => {
   const enabled = useModuleEnabled(module);
 
@@ -98,6 +97,25 @@ const ModuleGate = ({ module, children }: { module: ModuleCode; children: React.
   }
 
   return <>{children}</>;
+};
+
+const ExportImportPage = () => {
+  const isAuditor = getCurrentUser()?.role === "auditor";
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <MotionLayout variant="slideUp">
+          <ExportSection />
+        </MotionLayout>
+        {!isAuditor && (
+          <MotionLayout variant="slideUp">
+            <ImportSection />
+          </MotionLayout>
+        )}
+      </div>
+    </MainLayout>
+  );
 };
 
 // Helper to wrap pages with MotionLayout + ProtectedRoute if needed
@@ -158,16 +176,7 @@ const router = createBrowserRouter(
       path: "/parametres/export_import",
       element: (
         <ProtectedRoute allowedRoles={["admin", "auditor"]}>
-          <MainLayout>
-            <div className="space-y-6">
-              <MotionLayout variant="slideUp">
-                <ExportSection />
-              </MotionLayout>
-              <MotionLayout variant="slideUp">
-                <ImportSection />
-              </MotionLayout>
-            </div>
-          </MainLayout>
+          <ExportImportPage />
         </ProtectedRoute>
       ),
     },

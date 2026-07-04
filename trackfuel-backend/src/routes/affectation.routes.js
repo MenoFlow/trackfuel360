@@ -2,13 +2,16 @@ import express from 'express';
 const router = express.Router();
 import db from '../config/database.js';
 import { createAffectationSchema, updateAffectationSchema } from '../validators/affectation.validator.js';
+import { buildConflictResponse, getAvailabilityConflicts, toMysqlDateTime } from '../services/availabilityService.js';
 
 // GET /api/affectations
 router.get('/', async (req, res, next) => {
   try {
     const [rows] = await db.execute(`
-      SELECT * FROM affectations
-      ORDER BY date_debut DESC
+      SELECT a.*, om.destination AS mission_destination, om.motif AS mission_motif, om.statut AS mission_statut
+      FROM affectations a
+      LEFT JOIN ordres_mission om ON om.id = a.mission_id
+      ORDER BY a.date_debut DESC
     `);
     res.json(rows);
   } catch (error) {
@@ -37,10 +40,28 @@ router.post('/', async (req, res, next) => {
   try {
     const data = await createAffectationSchema.validateAsync(req.body);
 
+    const availability = await getAvailabilityConflicts(db, {
+      chauffeurId: data.chauffeur_id,
+      vehiculeId: data.vehicule_id,
+      start: data.date_debut,
+      end: data.date_fin,
+    });
+
+    if (availability.hasConflict) {
+      return res.status(409).json(buildConflictResponse(availability));
+    }
+
     const [result] = await db.execute(`
-      INSERT INTO affectations (vehicule_id, chauffeur_id, date_debut, date_fin)
-      VALUES (?, ?, ?, ?)
-    `, [data.vehicule_id, data.chauffeur_id, data.date_debut, data.date_fin]);
+      INSERT INTO affectations (vehicule_id, chauffeur_id, mission_id, source, date_debut, date_fin)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      data.vehicule_id,
+      data.chauffeur_id,
+      data.mission_id || null,
+      data.source || 'manuelle',
+      toMysqlDateTime(data.date_debut),
+      toMysqlDateTime(data.date_fin),
+    ]);
 
     const [newRow] = await db.execute('SELECT * FROM affectations WHERE id = ?', [result.insertId]);
     res.status(201).json(newRow[0]);
@@ -55,13 +76,35 @@ router.put('/:id', async (req, res, next) => {
     const { id } = req.params;
     const data = await updateAffectationSchema.validateAsync(req.body);
 
-    const [existing] = await db.execute('SELECT id FROM affectations WHERE id = ?', [id]);
+    const [existing] = await db.execute('SELECT * FROM affectations WHERE id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Affectation non trouvée' });
     }
 
-    const fields = Object.keys(data);
-    const values = Object.values(data);
+    const nextData = {
+      ...existing[0],
+      ...data,
+    };
+
+    const availability = await getAvailabilityConflicts(db, {
+      chauffeurId: nextData.chauffeur_id,
+      vehiculeId: nextData.vehicule_id,
+      start: nextData.date_debut,
+      end: nextData.date_fin,
+      excludeAffectationId: id,
+      excludeMissionId: nextData.mission_id,
+    });
+
+    if (availability.hasConflict) {
+      return res.status(409).json(buildConflictResponse(availability));
+    }
+
+    const normalizedData = { ...data };
+    if (normalizedData.date_debut) normalizedData.date_debut = toMysqlDateTime(normalizedData.date_debut);
+    if (normalizedData.date_fin) normalizedData.date_fin = toMysqlDateTime(normalizedData.date_fin);
+
+    const fields = Object.keys(normalizedData);
+    const values = Object.values(normalizedData);
     const setClause = fields.map(f => `${f} = ?`).join(', ');
 
     await db.execute(`UPDATE affectations SET ${setClause} WHERE id = ?`, [...values, id]);

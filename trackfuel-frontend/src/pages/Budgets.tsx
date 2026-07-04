@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, TrendingDown, TrendingUp, WalletCards } from 'lucide-react';
 import { toast } from 'sonner';
+import { getCurrentRole } from '@/lib/accessControl';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -19,6 +20,8 @@ const money = (value: number) => Number(value || 0).toLocaleString('fr-FR');
 
 const Budgets = () => {
   const queryClient = useQueryClient();
+  const currentRole = getCurrentRole();
+  const canManageBudgets = currentRole !== 'auditor';
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ['budgets'],
     queryFn: async () => {
@@ -59,6 +62,11 @@ const Budgets = () => {
   const totalPrevu = budgets.reduce((sum: number, item: any) => sum + Number(item.montant_prevu || 0), 0);
   const totalReel = budgets.reduce((sum: number, item: any) => sum + Number(item.montant_reel || 0), 0);
   const ecart = totalReel - totalPrevu;
+  const isPeriodInvalid = Boolean(
+    form.periode_debut &&
+    form.periode_fin &&
+    new Date(form.periode_fin) < new Date(form.periode_debut)
+  );
 
   return (
     <MainLayout>
@@ -69,10 +77,12 @@ const Budgets = () => {
               <h1 className="text-3xl font-bold text-foreground">Budgets</h1>
               <p className="text-muted-foreground mt-2">Budgets carburant, maintenance et comparaison prevu / reel</p>
             </div>
-            <Button variant="outline" className="gap-2" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Nouveau budget
-            </Button>
+            {canManageBudgets && (
+              <Button variant="outline" className="gap-2" onClick={() => setOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Nouveau budget
+              </Button>
+            )}
           </div>
         </MotionWrapper>
 
@@ -190,11 +200,24 @@ const Budgets = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Debut</Label>
-                <Input type="date" value={form.periode_debut} onChange={event => setForm({ ...form, periode_debut: event.target.value })} />
+                <Input
+                  type="date"
+                  value={form.periode_debut}
+                  max={form.periode_fin || undefined}
+                  onChange={event => setForm({ ...form, periode_debut: event.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Fin</Label>
-                <Input type="date" value={form.periode_fin} onChange={event => setForm({ ...form, periode_fin: event.target.value })} />
+                <Input
+                  type="date"
+                  value={form.periode_fin}
+                  min={form.periode_debut || undefined}
+                  onChange={event => setForm({ ...form, periode_fin: event.target.value })}
+                />
+                {isPeriodInvalid && (
+                  <p className="text-xs text-destructive">La fin doit être après le début.</p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -210,7 +233,7 @@ const Budgets = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
-            <Button onClick={() => createBudget.mutate()} disabled={createBudget.isPending}>Enregistrer</Button>
+            <Button onClick={() => createBudget.mutate()} disabled={createBudget.isPending || isPeriodInvalid}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
