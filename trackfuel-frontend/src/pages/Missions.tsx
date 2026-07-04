@@ -206,7 +206,7 @@ const Missions = () => {
                       <TableRow>
                         <TableHead>Destination</TableHead>
                         <TableHead>Véhicule</TableHead>
-                        <TableHead>Chauffeur</TableHead>
+                        <TableHead>Conducteur</TableHead>
                         <TableHead>Date départ</TableHead>
                         <TableHead>Motif</TableHead>
                         <TableHead>Statut</TableHead>
@@ -302,7 +302,7 @@ const Missions = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nouvelle mission</DialogTitle>
-            <DialogDescription>Créer un ordre de mission pour un véhicule et un chauffeur.</DialogDescription>
+            <DialogDescription>Créer un ordre de mission pour un véhicule et un conducteur.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 md:grid-cols-2 py-4">
@@ -321,10 +321,10 @@ const Missions = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Chauffeur <span className="text-destructive">*</span></Label>
+              <Label>Conducteur <span className="text-destructive">*</span></Label>
               <Select value={form.chauffeur_id?.toString() || ''} onValueChange={v => setForm({ ...form, chauffeur_id: Number(v) })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un chauffeur" />
+                  <SelectValue placeholder="Sélectionner un conducteur" />
                 </SelectTrigger>
                 <SelectContent>
                   {chauffeurs.map((c: any) => (

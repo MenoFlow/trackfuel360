@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 
 type ConflictRange = {
-  type: 'affectation' | 'mission';
+  type: 'affectation' | 'mission' | 'reservation' | 'trajet' | 'maintenance_en_cours' | 'inactif' | string;
   id: number;
   date_debut: string;
   date_fin: string;
@@ -55,13 +55,25 @@ const renderRanges = (ranges: ConflictRange[] = []) => {
     return <p className="text-sm text-muted-foreground">Aucune plage bloquante trouvée.</p>;
   }
 
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      affectation: 'Affectation',
+      mission: 'Mission',
+      reservation: 'Réservation',
+      trajet: 'Trajet',
+      maintenance_en_cours: 'Maintenance',
+      inactif: 'Hors service',
+    };
+    return labels[type] || 'Blocage';
+  };
+
   return (
     <div className="space-y-2">
       {ranges.map((range) => (
         <div key={`${range.type}-${range.id}`} className="rounded-md border p-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={range.type === 'mission' ? 'default' : 'secondary'}>
-              {range.type === 'mission' ? 'Mission' : 'Affectation'}
+              {getTypeLabel(range.type)}
             </Badge>
             <span className="text-sm font-medium">{range.libelle || 'Plage assignée'}</span>
           </div>
@@ -106,7 +118,7 @@ export const AvailabilityConflictDialog = ({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <div>
-                <p className="font-medium">Disponibilité chauffeur</p>
+                <p className="font-medium">Disponibilité conducteur</p>
                 <p className="text-sm text-muted-foreground">
                   Libre à partir de : {formatDateTime(availability?.chauffeur?.next_free_start)}
                 </p>

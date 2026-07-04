@@ -25,7 +25,7 @@ interface AffectationDialogProps {
 
 const formSchema = z.object({
   vehicule_id: z.number().min(1, 'Le véhicule est requis'),
-  chauffeur_id: z.number().min(1, 'Le chauffeur est requis'),
+  chauffeur_id: z.number().min(1, 'Le conducteur est requis'),
   date_debut: z.date({ required_error: 'La date de début est requise' }),
   date_fin: z.date({ required_error: 'La date de fin est requise' }),
 }).refine((data) => data.date_fin > data.date_debut, {
@@ -185,7 +185,7 @@ export const AffectationDialog = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {chauffeurs?.filter((c) => (c.role==="driver")).map((c) => (
+                      {chauffeurs?.filter((c) => (c.role==="conducteur")).map((c) => (
                         <SelectItem key={c.id} value={c.id.toString()}>
                           {c.prenom} {c.nom} ({c.matricule})
                         </SelectItem>

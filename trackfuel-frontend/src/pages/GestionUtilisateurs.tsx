@@ -15,6 +15,7 @@ import { User } from '@/types';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { FONCTION_LABELS, ROLE_LABELS } from '@/lib/userLabels';
 
 const GestionUtilisateurs = () => {
   const { t } = useTranslation();
@@ -189,7 +190,7 @@ const handleCreateUser = async (data: Omit<User, 'id'> & { password: string }) =
                     <SelectItem value="admin">{t('users.roles.admin')}</SelectItem>
                     <SelectItem value="manager">{t('users.roles.manager')}</SelectItem>
                     {/* <SelectItem value="supervisor">{t('users.roles.supervisor')}</SelectItem> */}
-                    <SelectItem value="driver">{t('users.roles.driver')}</SelectItem>
+                    <SelectItem value="conducteur">{ROLE_LABELS.conducteur}</SelectItem>
                     <SelectItem value="auditor">{t('users.roles.auditor')}</SelectItem>
                   </SelectContent>
                 </Select>
@@ -229,8 +230,13 @@ const handleCreateUser = async (data: Omit<User, 'id'> & { password: string }) =
                           {user.prenom} {user.nom}
                         </h3>
                         <Badge variant={getRoleBadgeVariant(user.role)}>
-                          {t(`users.roles.${user.role}` as any)}
+                          {ROLE_LABELS[user.role]}
                         </Badge>
+                        {user.fonction && (
+                          <Badge variant="outline">
+                            Fonction: {FONCTION_LABELS[user.fonction]}
+                          </Badge>
+                        )}
                       </div>
                       <div className="mt-2 space-y-1">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">

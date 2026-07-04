@@ -8,8 +8,37 @@ export async function initDb() {
     // Harmonise les roles historiques avec le RBAC actuel.
     await connection.execute(`
       ALTER TABLE users
-      MODIFY role ENUM('admin', 'manager', 'supervisor', 'driver', 'auditor') NOT NULL;
+      MODIFY role ENUM('admin', 'manager', 'supervisor', 'driver', 'conducteur', 'auditor') NOT NULL;
     `);
+    await connection.execute("UPDATE users SET role = 'conducteur' WHERE role = 'driver'");
+    await connection.execute(`
+      ALTER TABLE users
+      MODIFY role ENUM('admin', 'manager', 'supervisor', 'conducteur', 'auditor') NOT NULL;
+    `);
+
+    const [userFunctionColumn] = await connection.execute(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        AND COLUMN_NAME = 'fonction'
+    `);
+    if (userFunctionColumn.length === 0) {
+      await connection.execute(`
+        ALTER TABLE users
+        ADD COLUMN fonction ENUM('conducteur', 'directeur', 'assistant', 'responsable_flotte', 'mecanicien', 'comptable', 'autre') NOT NULL DEFAULT 'conducteur' AFTER role
+      `);
+      await connection.execute(`
+        UPDATE users
+        SET fonction = CASE role
+          WHEN 'admin' THEN 'directeur'
+          WHEN 'manager' THEN 'responsable_flotte'
+          WHEN 'supervisor' THEN 'responsable_flotte'
+          WHEN 'auditor' THEN 'assistant'
+          ELSE 'conducteur'
+        END
+      `);
+    }
 
     // 1. Table clients
     await connection.execute(`
@@ -43,7 +72,7 @@ export async function initDb() {
       INSERT IGNORE INTO modules (code, label, phase, enabled_by_default) VALUES
       ('fuel', 'Carburant', 'MVP', TRUE),
       ('fleet', 'Parc roulant', 'MVP', TRUE),
-      ('drivers', 'Chauffeurs', 'MVP', TRUE),
+      ('drivers', 'Conducteurs', 'MVP', TRUE),
       ('missions', 'Ordres de mission', 'MVP', TRUE),
       ('maintenance', 'Maintenance de base', 'MVP', TRUE),
       ('documents', 'Documents et rappels', 'MVP', TRUE),
@@ -53,6 +82,7 @@ export async function initDb() {
       ('budgets', 'Budgets / couts', 'V2', FALSE),
       ('workshop_stock', 'Atelier / stock / pieces', 'V3', FALSE)
     `);
+    await connection.execute("UPDATE modules SET label = 'Conducteurs' WHERE code = 'drivers'");
 
     // 3. Table client_modules
     await connection.execute(`
@@ -86,7 +116,7 @@ export async function initDb() {
     // 5. Table role_module_permissions
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS role_module_permissions (
-          role ENUM('admin', 'manager', 'supervisor', 'driver', 'auditor') NOT NULL,
+          role ENUM('admin', 'manager', 'supervisor', 'conducteur', 'auditor') NOT NULL,
           module_code VARCHAR(50) NOT NULL,
           can_view BOOLEAN NOT NULL DEFAULT TRUE,
           can_manage BOOLEAN NOT NULL DEFAULT FALSE,
@@ -94,6 +124,20 @@ export async function initDb() {
           FOREIGN KEY (module_code) REFERENCES modules(code) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    await connection.execute(`
+      ALTER TABLE role_module_permissions
+      MODIFY role ENUM('admin', 'manager', 'supervisor', 'driver', 'conducteur', 'auditor') NOT NULL;
+    `);
+    await connection.execute(`
+      DELETE legacy
+      FROM role_module_permissions legacy
+      INNER JOIN role_module_permissions next_role
+        ON next_role.module_code = legacy.module_code
+       AND next_role.role = 'conducteur'
+      WHERE legacy.role = 'driver'
+    `);
+    await connection.execute("UPDATE role_module_permissions SET role = 'conducteur' WHERE role = 'driver'");
 
     // Seed role_module_permissions
     await connection.execute(`
@@ -136,8 +180,13 @@ export async function initDb() {
       ('auditor', 'documents', TRUE, FALSE),
       ('auditor', 'reporting', TRUE, FALSE),
       ('auditor', 'budgets', TRUE, FALSE),
-      ('driver', 'fuel', TRUE, FALSE),
-      ('driver', 'missions', TRUE, FALSE)
+      ('conducteur', 'fuel', TRUE, FALSE),
+      ('conducteur', 'missions', TRUE, FALSE),
+      ('conducteur', 'maintenance', TRUE, FALSE)
+    `);
+    await connection.execute(`
+      ALTER TABLE role_module_permissions
+      MODIFY role ENUM('admin', 'manager', 'supervisor', 'conducteur', 'auditor') NOT NULL;
     `);
 
     // 6. Table driver_profiles

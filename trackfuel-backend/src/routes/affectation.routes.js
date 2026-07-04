@@ -2,7 +2,13 @@ import express from 'express';
 const router = express.Router();
 import db from '../config/database.js';
 import { createAffectationSchema, updateAffectationSchema } from '../validators/affectation.validator.js';
-import { buildConflictResponse, getAvailabilityConflicts, toMysqlDateTime } from '../services/availabilityService.js';
+import {
+  buildConflictResponse,
+  buildDriverIneligibleResponse,
+  getAvailabilityConflicts,
+  getDriverEligibility,
+  toMysqlDateTime,
+} from '../services/availabilityService.js';
 
 // GET /api/affectations
 router.get('/', async (req, res, next) => {
@@ -40,6 +46,18 @@ router.post('/', async (req, res, next) => {
   try {
     const data = await createAffectationSchema.validateAsync(req.body);
 
+    if (data.source === 'mission' || data.mission_id) {
+      return res.status(400).json({
+        error: 'Les affectations de mission sont créées uniquement après acceptation de la mission.',
+        code: 'MISSION_ASSIGNMENT_MANAGED_BY_MISSION',
+      });
+    }
+
+    const driverEligibility = await getDriverEligibility(db, data.chauffeur_id);
+    if (driverEligibility) {
+      return res.status(driverEligibility.code === 'DRIVER_NOT_FOUND' ? 400 : 409).json(buildDriverIneligibleResponse(driverEligibility));
+    }
+
     const availability = await getAvailabilityConflicts(db, {
       chauffeurId: data.chauffeur_id,
       vehiculeId: data.vehicule_id,
@@ -57,8 +75,8 @@ router.post('/', async (req, res, next) => {
     `, [
       data.vehicule_id,
       data.chauffeur_id,
-      data.mission_id || null,
-      data.source || 'manuelle',
+      null,
+      'manuelle',
       toMysqlDateTime(data.date_debut),
       toMysqlDateTime(data.date_fin),
     ]);
@@ -81,10 +99,29 @@ router.put('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Affectation non trouvée' });
     }
 
+    if (existing[0].source === 'mission' || existing[0].mission_id) {
+      return res.status(409).json({
+        error: 'Cette affectation est gérée par une mission et ne peut pas être modifiée directement.',
+        code: 'MISSION_ASSIGNMENT_MANAGED_BY_MISSION',
+      });
+    }
+
+    if (data.source === 'mission' || data.mission_id) {
+      return res.status(400).json({
+        error: 'Une affectation manuelle ne peut pas être convertie en affectation de mission.',
+        code: 'MISSION_ASSIGNMENT_MANAGED_BY_MISSION',
+      });
+    }
+
     const nextData = {
       ...existing[0],
       ...data,
     };
+
+    const driverEligibility = await getDriverEligibility(db, nextData.chauffeur_id);
+    if (driverEligibility) {
+      return res.status(driverEligibility.code === 'DRIVER_NOT_FOUND' ? 400 : 409).json(buildDriverIneligibleResponse(driverEligibility));
+    }
 
     const availability = await getAvailabilityConflicts(db, {
       chauffeurId: nextData.chauffeur_id,
@@ -92,7 +129,6 @@ router.put('/:id', async (req, res, next) => {
       start: nextData.date_debut,
       end: nextData.date_fin,
       excludeAffectationId: id,
-      excludeMissionId: nextData.mission_id,
     });
 
     if (availability.hasConflict) {
@@ -121,9 +157,16 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const [existing] = await db.execute('SELECT id FROM affectations WHERE id = ?', [id]);
+    const [existing] = await db.execute('SELECT id, source, mission_id FROM affectations WHERE id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Affectation non trouvée' });
+    }
+
+    if (existing[0].source === 'mission' || existing[0].mission_id) {
+      return res.status(409).json({
+        error: 'Cette affectation est gérée par une mission et doit être supprimée depuis la mission associée.',
+        code: 'MISSION_ASSIGNMENT_MANAGED_BY_MISSION',
+      });
     }
 
     await db.execute('DELETE FROM affectations WHERE id = ?', [id]);

@@ -8,6 +8,67 @@ const router = express.Router();
 import db from '../config/database.js';
 import { createVehiculeSchema, updateVehiculeSchema } from '../validators/vehicule.validator.js';
 
+const vehicleAvailabilitySelect = `
+  v.*,
+  (
+    SELECT mi.id
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'en_cours'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS maintenance_en_cours_id,
+  (
+    SELECT mi.type
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'en_cours'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS maintenance_en_cours_type,
+  (
+    SELECT mi.date_prevue
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'en_cours'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS maintenance_en_cours_date,
+  (
+    SELECT mi.id
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'planifie'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS prochaine_maintenance_id,
+  (
+    SELECT mi.type
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'planifie'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS prochaine_maintenance_type,
+  (
+    SELECT mi.date_prevue
+    FROM maintenance_interventions mi
+    WHERE mi.vehicule_id = v.id AND mi.statut = 'planifie'
+    ORDER BY mi.date_prevue ASC, mi.id DESC
+    LIMIT 1
+  ) AS prochaine_maintenance_date,
+  CASE
+    WHEN v.actif = 0 THEN 'inactif'
+    WHEN EXISTS (
+      SELECT 1 FROM maintenance_interventions mi
+      WHERE mi.vehicule_id = v.id AND mi.statut = 'en_cours'
+    ) THEN 'maintenance_en_cours'
+    ELSE 'disponible'
+  END AS disponibilite_statut,
+  CASE
+    WHEN v.actif = 0 OR EXISTS (
+      SELECT 1 FROM maintenance_interventions mi
+      WHERE mi.vehicule_id = v.id AND mi.statut = 'en_cours'
+    ) THEN TRUE
+    ELSE FALSE
+  END AS hors_service
+`;
+
 /**
  * GET /api/vehicules
  * Description: Récupère la liste de tous les véhicules
@@ -19,7 +80,7 @@ import { createVehiculeSchema, updateVehiculeSchema } from '../validators/vehicu
 router.get('/', async (req, res, next) => {
   try {    
     let query = `
-      SELECT v.*
+      SELECT ${vehicleAvailabilitySelect}
       FROM vehicules v
       ORDER BY v.id
     `;
@@ -42,9 +103,9 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params;
     
     const [vehicules] = await db.execute(`
-      SELECT *
-      FROM vehicules
-      WHERE id = ?
+      SELECT ${vehicleAvailabilitySelect}
+      FROM vehicules v
+      WHERE v.id = ?
     `, [id]);
     
     if (vehicules.length === 0) {
@@ -96,7 +157,7 @@ router.post('/', async (req, res, next) => {
 
     // Récupération du véhicule créé (avec l'id auto-incrémenté)
     const [newVehicule] = await db.execute(
-      'SELECT * FROM vehicules WHERE id = ?',
+      `SELECT ${vehicleAvailabilitySelect} FROM vehicules v WHERE v.id = ?`,
       [result.insertId]   // plus propre que re-chercher par immatriculation
     );
 
@@ -138,7 +199,7 @@ router.put('/:id', async (req, res, next) => {
       [...values, id]
     );
 
-    const [updated] = await db.execute('SELECT * FROM vehicules WHERE id = ?', [id]);
+    const [updated] = await db.execute(`SELECT ${vehicleAvailabilitySelect} FROM vehicules v WHERE v.id = ?`, [id]);
     res.json(updated[0]);
   } catch (error) {
     if (error.isJoi) {

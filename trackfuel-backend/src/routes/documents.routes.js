@@ -69,7 +69,7 @@ router.post('/', async (req, res, next) => {
     }
 
     if (rule.owner === 'chauffeur' && !chauffeur_id) {
-      return res.status(400).json({ error: 'Ce type de document doit etre lie a un chauffeur' });
+      return res.status(400).json({ error: 'Ce type de document doit etre lie a un conducteur' });
     }
 
     const [result] = await db.execute(

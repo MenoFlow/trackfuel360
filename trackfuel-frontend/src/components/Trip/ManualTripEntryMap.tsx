@@ -14,6 +14,7 @@ import "leaflet-draw/dist/leaflet.draw.css";
 import { EditControl } from "react-leaflet-draw";
 import { TripDialog } from "./TripDialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { RotateCcw, Activity, Loader2, LogOut, Eye, Edit, Trash2 } from "lucide-react";
 import MobileTripDialog from "./MobileTripDialog";
 import { MotionWrapper } from "../Layout/MotionWrapper";
@@ -31,6 +32,8 @@ import { useToast } from "@/components/ui/use-toast";
 import Header from "../Chauffeur/Header";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { tr } from "date-fns/locale";
+import { useVehicule } from "@/hooks/useVehicules";
+import { getVehicleStatusBadgeVariant, getVehicleStatusLabel, getVehicleUnavailableReason, isVehicleOutOfService } from "@/lib/vehicleStatus";
 
 // --- Custom marker icons ---
 const GreenIcon = new L.Icon({
@@ -117,6 +120,7 @@ export default function ManualTripEntryMap() {
   const isAdmin = currentUser?.role === "admin";
   // React Query hooks
   const { data: trips = [], isLoading: isLoadingTrips } = useTrips(id_vehicule);
+  const { data: vehicule } = useVehicule(id_vehicule);
   const createTripMutation = useCreateTrip();
   const updateTripMutation = useUpdateTrip();
   const deleteTripMutation = useDeleteTrip();
@@ -185,6 +189,15 @@ export default function ManualTripEntryMap() {
         title: "Champs manquants",
         description: "Veuillez définir un départ et une arrivée.",
         variant: "destructive", // rouge
+      });
+      return;
+    }
+
+    if (isVehicleOutOfService(vehicule)) {
+      toast({
+        title: "Véhicule indisponible",
+        description: getVehicleUnavailableReason(vehicule),
+        variant: "destructive",
       });
       return;
     }
@@ -298,7 +311,7 @@ export default function ManualTripEntryMap() {
 
   const isSaving = createTripMutation.isPending || updateTripMutation.isPending;
   const isDeleting = deleteTripMutation.isPending;
-  const canSave = departure && arrival && !isSaving;
+  const canSave = departure && arrival && !isSaving && !isVehicleOutOfService(vehicule);
 
   function getMiddlePoint(
     departure: { lat: number; lon: number },
@@ -324,6 +337,16 @@ export default function ManualTripEntryMap() {
               {t("trips.title")}
             </h1>
             <p className="text-muted-foreground mt-2">{t("trips.subtitle")}</p>
+            {vehicule && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant={getVehicleStatusBadgeVariant(vehicule)}>
+                  {getVehicleStatusLabel(vehicule)}
+                </Badge>
+                {isVehicleOutOfService(vehicule) && (
+                  <span className="text-sm text-destructive">{getVehicleUnavailableReason(vehicule)}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">

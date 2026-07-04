@@ -7,24 +7,26 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-hermenio_db}
       MYSQL_USER: ${MYSQL_USER:-hermenio_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hermenio_pass}
-    ports:
-      - "3307:3306"
+    expose:
+      - "3306"
     volumes:
       - db_data:/var/lib/mysql
       - ./trackfuel-backend/docker/mysql-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -prootpass123"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    networks:
+      - backend_internal
 
   app:
     build: ./trackfuel-backend
     container_name: projet-hermenio-app
     restart: unless-stopped
-    ports:
-      - "8086:8086"
+    expose:
+      - "8086"
     environment:
       NODE_ENV: production
       PORT: 8086
@@ -45,6 +47,8 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      - backend_internal
 
   frontend:
     build:
@@ -59,6 +63,14 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    networks:
+      - backend_internal
+      - public_web
 
 volumes:
   db_data:
+
+networks:
+  public_web:
+  backend_internal:
+    internal: true

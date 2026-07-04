@@ -326,7 +326,7 @@ const GestionCorrections = () => {
                     <SelectContent>
                       <SelectItem value="all">{t('corrections.allDrivers')}</SelectItem>
                       {users
-                        ?.filter(u => u.role === 'driver')
+                        ?.filter(u => u.role === 'conducteur')
                         .map(u => (
                           <SelectItem key={u.id} value={(u.id).toString()}>
                             {u.prenom} {u.nom}

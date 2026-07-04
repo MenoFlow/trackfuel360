@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/', async (req, res, next) => {
   try {
     const [rows] = await db.execute(
-      `SELECT u.id, u.email, u.matricule, u.nom, u.prenom, u.role, u.site_id,
+      `SELECT u.id, u.email, u.matricule, u.nom, u.prenom, u.role, u.fonction, u.site_id,
               dp.telephone, dp.permis_numero, dp.permis_categorie, dp.statut,
               permis.expire_le AS permis_expire_le,
               permis.reference AS permis_document_reference,
@@ -28,7 +28,7 @@ router.get('/', async (req, res, next) => {
          ORDER BY d.expire_le DESC, d.id DESC
          LIMIT 1
        )
-       WHERE u.role = 'driver'
+       WHERE u.role = 'conducteur'
        ORDER BY u.nom, u.prenom`
     );
 
@@ -61,7 +61,7 @@ router.put('/:id/profile', async (req, res, next) => {
     );
 
     const [rows] = await db.execute(
-      `SELECT u.id, u.email, u.matricule, u.nom, u.prenom, u.role, u.site_id,
+      `SELECT u.id, u.email, u.matricule, u.nom, u.prenom, u.role, u.fonction, u.site_id,
               dp.telephone, dp.permis_numero, dp.permis_categorie, dp.statut
        FROM users u
        LEFT JOIN driver_profiles dp ON dp.user_id = u.id

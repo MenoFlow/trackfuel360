@@ -123,8 +123,8 @@ router.get('/import/template', (req, res) => {
       { id: 2, nom: 'Site Toamasina', ville: 'Toamasina', pays: 'Madagascar' },
     ],
     User: [
-      { id: 1, email: 'admin@trackfuel.mg', matricule: 'ADM001', nom: 'Admin', prenom: 'Principal', role: 'admin', site_id: 1, password_hash: 'password_hash' },
-      { id: 2, email: 'jean.rakoto@trackfuel.mg', matricule: 'DRV001', nom: 'Rakoto', prenom: 'Jean', role: 'driver', site_id: 1, password_hash: 'password_hash' },
+      { id: 1, email: 'admin@trackfuel.mg', matricule: 'ADM001', nom: 'Admin', prenom: 'Principal', role: 'admin', fonction: 'directeur', site_id: 1, password_hash: 'password_hash' },
+      { id: 2, email: 'jean.rakoto@trackfuel.mg', matricule: 'DRV001', nom: 'Rakoto', prenom: 'Jean', role: 'conducteur', fonction: 'conducteur', site_id: 1, password_hash: 'password_hash' },
     ],
     DriverProfile: [{ user_id: 2, telephone: '+261 34 00 000 01', permis_numero: 'P-DRV001', permis_categorie: 'B,C', statut: 'actif' }],
     Vehicule: [{ id: 1, immatriculation: '1234 TAD', marque: 'Toyota', modele: 'Hilux', type: 'diesel', capacite_reservoir: 80, consommation_nominale: 10.5, carburant_initial: 40, kilometrage_initial: 125000, actif: true, site_id: 1 }],
@@ -163,6 +163,7 @@ router.get('/import/template', (req, res) => {
       ['Instructions d import'],
       ['Respecter l ordre des feuilles propose dans le classeur.'],
       ['Toutes les tables applicatives connues sont presentes.'],
+      ['Roles autorises: admin, manager, supervisor, conducteur, auditor. Fonctions autorisees: conducteur, directeur, assistant, responsable_flotte, mecanicien, comptable, autre.'],
       ['Supprimer ou modifier les lignes d exemple avant un import reel.'],
   ];
 

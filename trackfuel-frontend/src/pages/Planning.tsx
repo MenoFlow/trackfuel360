@@ -157,7 +157,7 @@ const Planning = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Vehicule</TableHead>
-                    <TableHead>Chauffeur</TableHead>
+                    <TableHead>Conducteur</TableHead>
                     <TableHead>Motif</TableHead>
                     <TableHead>Debut</TableHead>
                     <TableHead>Fin</TableHead>
@@ -221,7 +221,7 @@ const Planning = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Chauffeur</Label>
+              <Label>Conducteur</Label>
               <Select value={form.chauffeur_id?.toString() || ''} onValueChange={value => setForm({ ...form, chauffeur_id: Number(value) })}>
                 <SelectTrigger><SelectValue placeholder="Optionnel" /></SelectTrigger>
                 <SelectContent>

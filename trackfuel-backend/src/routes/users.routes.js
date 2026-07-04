@@ -6,7 +6,7 @@ import { createUserSchema, updateUserSchema, loginSchema } from '../validators/u
 
 router.get('/', async (req, res, next) => {
   try {
-    const [users] = await db.execute('SELECT id, email, matricule, nom, prenom, role, site_id FROM users');
+    const [users] = await db.execute('SELECT id, email, matricule, nom, prenom, role, fonction, site_id FROM users');
     res.json(users);
   } catch (error) {
     next(error);
@@ -17,7 +17,7 @@ router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const [rows] = await db.execute(
-      'SELECT id, email, password_hash, matricule, nom, prenom, role, site_id FROM users WHERE email = ?',
+      'SELECT id, email, password_hash, matricule, nom, prenom, role, fonction, site_id FROM users WHERE email = ?',
       [email]
     );
 
@@ -42,6 +42,7 @@ router.post('/login', async (req, res, next) => {
         prenom: user.prenom,
         nom: user.nom,
         role: user.role,
+        fonction: user.fonction,
       },
     });
   } catch (error) {
@@ -64,13 +65,13 @@ router.post('/', async (req, res, next) => {
 
     const [result] = await db.execute(
       `INSERT INTO users 
-       (email, matricule, nom, prenom, role, site_id, password_hash) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [data.email, data.matricule, data.nom, data.prenom, data.role, data.site_id ?? null, hash]
+       (email, matricule, nom, prenom, role, fonction, site_id, password_hash) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [data.email, data.matricule, data.nom, data.prenom, data.role, data.fonction ?? 'conducteur', data.site_id ?? null, hash]
     );
 
     const [newUser] = await db.execute(
-      'SELECT id, email, matricule, nom, prenom, role, site_id FROM users WHERE id = ?',
+      'SELECT id, email, matricule, nom, prenom, role, fonction, site_id FROM users WHERE id = ?',
       [result.insertId]
     );
 
@@ -108,7 +109,7 @@ router.put('/:id', async (req, res, next) => {
       [...values, id]
     );
 
-    const [updated] = await db.execute('SELECT * FROM users WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT id, email, matricule, nom, prenom, role, fonction, site_id FROM users WHERE id = ?', [id]);
     res.json(updated[0]);
   } catch (error) {
     next(error);

@@ -10,7 +10,8 @@ export interface Parametre {
   max?: number;
 }
 
-export type AppRole = 'admin' | 'manager' | 'supervisor' | 'driver' | 'auditor';
+export type AppRole = 'admin' | 'manager' | 'supervisor' | 'conducteur' | 'auditor';
+export type UserFonction = 'conducteur' | 'directeur' | 'assistant' | 'responsable_flotte' | 'mecanicien' | 'comptable' | 'autre';
 
 export type SaisieType = 'auto' | 'manuelle';
 
@@ -86,6 +87,7 @@ export interface User {
   nom: string;
   prenom: string;
   role: AppRole;
+  fonction?: UserFonction;
   site_id?: number;
   password_hash?: string;
   created_at?: string;
@@ -107,6 +109,14 @@ export interface Vehicule {
   carburant_initial?: number;
   kilometrage_initial?: number;
   actif?: boolean;
+  disponibilite_statut?: 'disponible' | 'maintenance_en_cours' | 'inactif';
+  hors_service?: boolean | number;
+  maintenance_en_cours_id?: number | null;
+  maintenance_en_cours_type?: string | null;
+  maintenance_en_cours_date?: string | null;
+  prochaine_maintenance_id?: number | null;
+  prochaine_maintenance_type?: string | null;
+  prochaine_maintenance_date?: string | null;
   site_id?: number | null;
   created_at?: string;
   updated_at?: string;
@@ -354,7 +364,7 @@ export const DATA_TYPES = [
   { value: 'RoleModulePermission', label: 'Permissions modules', dependencies: ['Module'] },
   { value: 'Site', label: 'Sites', dependencies: [] },
   { value: 'User', label: 'Utilisateurs', dependencies: ['Site'] },
-  { value: 'DriverProfile', label: 'Profils chauffeurs', dependencies: ['User'] },
+  { value: 'DriverProfile', label: 'Profils conducteurs', dependencies: ['User'] },
   { value: 'Vehicule', label: 'Véhicules', dependencies: ['Site'] },
   { value: 'Geofence', label: 'Geofences', dependencies: [] },
   { value: 'Affectation', label: 'Affectations', dependencies: ['Vehicule', 'User'] },

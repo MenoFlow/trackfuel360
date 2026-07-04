@@ -179,7 +179,7 @@ export function TripDialog({
                 {t("assignments.selectDriver")}
               </option>
               {chauffeurs
-                ?.filter((c) => c.role === "driver")
+                ?.filter((c) => c.role === "conducteur")
                 .map((c) => (
                   <option key={c.id} value={c.id.toString()}>
                     {c.prenom} {c.nom} ({c.matricule})

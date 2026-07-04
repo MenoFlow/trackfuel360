@@ -32,9 +32,9 @@ import { toast } from 'sonner';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
-const fetchChauffeurs = async () => {
+const fetchConducteurs = async () => {
   const response = await fetch(`${API_BASE}/api/chauffeurs`);
-  if (!response.ok) throw new Error('Impossible de charger les chauffeurs');
+  if (!response.ok) throw new Error('Impossible de charger les conducteurs');
   return response.json();
 };
 
@@ -74,13 +74,13 @@ const DocStatusBadge = ({ date, label }: { date: string | null; label: string })
   );
 };
 
-const Chauffeurs = () => {
+const Conducteurs = () => {
   const queryClient = useQueryClient();
-  const { data: chauffeurs = [], isLoading } = useQuery({ queryKey: ['chauffeurs'], queryFn: fetchChauffeurs });
+  const { data: conducteurs = [], isLoading } = useQuery({ queryKey: ['conducteurs'], queryFn: fetchConducteurs });
 
   // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingChauffeur, setEditingChauffeur] = useState<any>(null);
+  const [editingConducteur, setEditingConducteur] = useState<any>(null);
   const [form, setForm] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -104,28 +104,28 @@ const Chauffeurs = () => {
       return response.json();
     },
     onSuccess: () => {
-      toast.success('Fiche chauffeur mise à jour');
+      toast.success('Fiche conducteur mise à jour');
       setDialogOpen(false);
-      setEditingChauffeur(null);
-      queryClient.invalidateQueries({ queryKey: ['chauffeurs'] });
+      setEditingConducteur(null);
+      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
     },
     onError: () => toast.error('Erreur lors de la mise à jour'),
     onSettled: () => setIsSubmitting(false),
   });
 
-  const handleEdit = (chauffeur: any) => {
-    setEditingChauffeur(chauffeur);
+  const handleEdit = (conducteur: any) => {
+    setEditingConducteur(conducteur);
     setForm({
-      telephone: chauffeur.telephone || '',
-      permis_numero: chauffeur.permis_numero || '',
-      permis_categorie: chauffeur.permis_categorie || '',
-      statut: chauffeur.statut || 'actif',
+      telephone: conducteur.telephone || '',
+      permis_numero: conducteur.permis_numero || '',
+      permis_categorie: conducteur.permis_categorie || '',
+      statut: conducteur.statut || 'actif',
     });
     setDialogOpen(true);
   };
 
   // Filtering
-  const filtered = chauffeurs.filter((c: any) => {
+  const filtered = conducteurs.filter((c: any) => {
     if (statutFilter !== 'all' && (c.statut || 'actif') !== statutFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -141,9 +141,9 @@ const Chauffeurs = () => {
   const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   // Stats
-  const actifs = chauffeurs.filter((c: any) => (c.statut || 'actif') === 'actif').length;
-  const permisExpires = chauffeurs.filter((c: any) => getDocStatus(c.permis_expire_le) === 'expired').length;
-  const visitesExpirees = chauffeurs.filter((c: any) => getDocStatus(c.visite_medicale_expire_le) === 'expired').length;
+  const actifs = conducteurs.filter((c: any) => (c.statut || 'actif') === 'actif').length;
+  const permisExpires = conducteurs.filter((c: any) => getDocStatus(c.permis_expire_le) === 'expired').length;
+  const visitesExpirees = conducteurs.filter((c: any) => getDocStatus(c.visite_medicale_expire_le) === 'expired').length;
 
   return (
     <MainLayout>
@@ -152,9 +152,9 @@ const Chauffeurs = () => {
         <MotionWrapper variant="slideUp">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-center sm:text-left">
-              <h1 className="text-3xl font-bold text-foreground">Chauffeurs</h1>
+              <h1 className="text-3xl font-bold text-foreground">Conducteurs</h1>
               <p className="text-muted-foreground mt-2">
-                Fiches chauffeurs et suivi des documents depuis la conformité
+                Fiches conducteurs et suivi des documents depuis la conformité
               </p>
             </div>
           </div>
@@ -170,8 +170,8 @@ const Chauffeurs = () => {
                     <Users className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Chauffeurs actifs</p>
-                    <p className="text-2xl font-bold">{actifs} / {chauffeurs.length}</p>
+                    <p className="text-sm text-muted-foreground">Conducteurs actifs</p>
+                    <p className="text-2xl font-bold">{actifs} / {conducteurs.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -256,7 +256,7 @@ const Chauffeurs = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Chauffeur</TableHead>
+                        <TableHead>Conducteur</TableHead>
                         <TableHead>Matricule</TableHead>
                         <TableHead>Téléphone</TableHead>
                         <TableHead>Permis</TableHead>
@@ -266,49 +266,49 @@ const Chauffeurs = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginated.map((chauffeur: any) => {
-                        const config = STATUT_CONFIG[chauffeur.statut || 'actif'] || STATUT_CONFIG.actif;
+                      {paginated.map((conducteur: any) => {
+                        const config = STATUT_CONFIG[conducteur.statut || 'actif'] || STATUT_CONFIG.actif;
                         return (
-                          <TableRow key={chauffeur.id} className="hover:bg-muted/50 transition-colors">
+                          <TableRow key={conducteur.id} className="hover:bg-muted/50 transition-colors">
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                                   <Users className="h-4 w-4 text-primary" />
                                 </div>
                                 <div>
-                                  <p className="font-medium">{chauffeur.prenom} {chauffeur.nom}</p>
-                                  <p className="text-xs text-muted-foreground">{chauffeur.email}</p>
+                                  <p className="font-medium">{conducteur.prenom} {conducteur.nom}</p>
+                                  <p className="text-xs text-muted-foreground">{conducteur.email}</p>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{chauffeur.matricule}</Badge>
+                              <Badge variant="outline">{conducteur.matricule}</Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground">
-                              {chauffeur.telephone ? (
+                              {conducteur.telephone ? (
                                 <div className="flex items-center gap-1">
                                   <Phone className="h-3 w-3" />
-                                  {chauffeur.telephone}
+                                  {conducteur.telephone}
                                 </div>
                               ) : '—'}
                             </TableCell>
                             <TableCell>
                               <div className="space-y-0.5">
                                 <p className="text-xs text-muted-foreground">
-                                  {chauffeur.permis_numero || 'Non renseigné'}
-                                  {chauffeur.permis_categorie && ` (${chauffeur.permis_categorie})`}
+                                  {conducteur.permis_numero || 'Non renseigné'}
+                                  {conducteur.permis_categorie && ` (${conducteur.permis_categorie})`}
                                 </p>
-                                <DocStatusBadge date={chauffeur.permis_expire_le} label="Permis" />
-                                {chauffeur.permis_document_reference && (
-                                  <p className="text-[11px] text-muted-foreground">Doc: {chauffeur.permis_document_reference}</p>
+                                <DocStatusBadge date={conducteur.permis_expire_le} label="Permis" />
+                                {conducteur.permis_document_reference && (
+                                  <p className="text-[11px] text-muted-foreground">Doc: {conducteur.permis_document_reference}</p>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-0.5">
-                                <DocStatusBadge date={chauffeur.visite_medicale_expire_le} label="Visite" />
-                                {chauffeur.visite_medicale_document_reference && (
-                                  <p className="text-[11px] text-muted-foreground">Doc: {chauffeur.visite_medicale_document_reference}</p>
+                                <DocStatusBadge date={conducteur.visite_medicale_expire_le} label="Visite" />
+                                {conducteur.visite_medicale_document_reference && (
+                                  <p className="text-[11px] text-muted-foreground">Doc: {conducteur.visite_medicale_document_reference}</p>
                                 )}
                               </div>
                             </TableCell>
@@ -320,7 +320,7 @@ const Chauffeurs = () => {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 text-xs gap-1"
-                                onClick={() => handleEdit(chauffeur)}
+                                onClick={() => handleEdit(conducteur)}
                               >
                                 <Edit className="h-3 w-3" /> Modifier
                               </Button>
@@ -344,8 +344,8 @@ const Chauffeurs = () => {
             <CardContent className="py-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
-                {chauffeurs.length === 0
-                  ? 'Aucun chauffeur trouvé. Les chauffeurs sont les utilisateurs avec le rôle "driver".'
+                {conducteurs.length === 0
+                  ? 'Aucun conducteur trouvé. Les conducteurs sont les utilisateurs avec le rôle "conducteur".'
                   : 'Aucun résultat pour les filtres sélectionnés'
                 }
               </p>
@@ -385,12 +385,12 @@ const Chauffeurs = () => {
         )}
       </div>
 
-      {/* Modal - Modifier fiche chauffeur */}
-      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingChauffeur(null); }}>
+      {/* Modal - Modifier fiche conducteur */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingConducteur(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Modifier la fiche — {editingChauffeur?.prenom} {editingChauffeur?.nom}
+              Modifier la fiche — {editingConducteur?.prenom} {editingConducteur?.nom}
             </DialogTitle>
             <DialogDescription>
               Mettre à jour le contact, le statut et les informations non expiratives du permis. Les dates d'expiration se gèrent dans Conformité.
@@ -440,7 +440,7 @@ const Chauffeurs = () => {
             </div>
 
             <div className="md:col-span-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-              Les dates d'expiration du permis et de la visite médicale proviennent des documents de conformité associés au chauffeur.
+              Les dates d'expiration du permis et de la visite médicale proviennent des documents de conformité associés au conducteur.
             </div>
           </div>
 
@@ -450,8 +450,8 @@ const Chauffeurs = () => {
             </Button>
             <Button
               onClick={() => {
-                if (editingChauffeur) {
-                  updateProfile.mutate({ id: editingChauffeur.id, data: form });
+                if (editingConducteur) {
+                  updateProfile.mutate({ id: editingConducteur.id, data: form });
                 }
               }}
               disabled={isSubmitting}
@@ -465,4 +465,4 @@ const Chauffeurs = () => {
   );
 };
 
-export default Chauffeurs;
+export default Conducteurs;

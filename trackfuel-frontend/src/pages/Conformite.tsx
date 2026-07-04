@@ -84,14 +84,14 @@ const DOC_RULES: Record<string, {
     rappelJours: 60,
     validityMonths: 60,
     referencePlaceholder: 'Ex: P-1234567',
-    helper: 'Document lié à un chauffeur. Sa date alimente automatiquement la page Chauffeurs.',
+    helper: 'Document lié à un conducteur. Sa date alimente automatiquement la page Conducteurs.',
   },
   visite_medicale: {
     owner: 'chauffeur',
     rappelJours: 30,
     validityMonths: 12,
     referencePlaceholder: 'Ex: VM-2026-001',
-    helper: 'Document lié à un chauffeur. Sa date alimente automatiquement la page Chauffeurs.',
+    helper: 'Document lié à un conducteur. Sa date alimente automatiquement la page Conducteurs.',
   },
 };
 
@@ -349,7 +349,7 @@ const Conformite = () => {
                       <TableRow>
                         <TableHead>Type</TableHead>
                         <TableHead>Référence</TableHead>
-                        <TableHead>Véhicule / Chauffeur</TableHead>
+                        <TableHead>Véhicule / Conducteur</TableHead>
                         <TableHead>Délivré le</TableHead>
                         <TableHead>Expire le</TableHead>
                         <TableHead>Rappel</TableHead>
@@ -488,10 +488,10 @@ const Conformite = () => {
 
             {currentRule.owner === 'chauffeur' && (
             <div className="space-y-2 md:col-span-2">
-              <Label>Chauffeur associé <span className="text-destructive">*</span></Label>
+              <Label>Conducteur associé <span className="text-destructive">*</span></Label>
               <Select value={form.chauffeur_id?.toString() || 'none'} onValueChange={v => setForm({ ...form, chauffeur_id: v === 'none' ? null : Number(v) })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un chauffeur" />
+                  <SelectValue placeholder="Choisir un conducteur" />
                 </SelectTrigger>
                 <SelectContent>
                   {chauffeurs.map((c: any) => (

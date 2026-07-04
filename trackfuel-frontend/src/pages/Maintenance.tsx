@@ -95,6 +95,7 @@ const Maintenance = () => {
       setForm({ type: 'revision', statut: 'planifie' });
       setDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
     },
     onError: () => toast.error('Erreur lors de la création'),
     onSettled: () => setIsSubmitting(false),
@@ -113,6 +114,7 @@ const Maintenance = () => {
     onSuccess: () => {
       toast.success('Statut mis à jour');
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
     },
     onError: () => toast.error('Erreur de mise à jour'),
   });

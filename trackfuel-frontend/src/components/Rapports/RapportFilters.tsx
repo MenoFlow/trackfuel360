@@ -138,16 +138,16 @@ export const RapportFiltersComponent = ({ filtres, onFiltresChange, onReset, sel
             </div>
           )}
 
-          {/* Chauffeur */}
+          {/* Conducteur */}
           {shouldShowFilter('chauffeur_id') && (
             <div className="space-y-2">
-              <Label htmlFor="chauffeur_id">Chauffeur</Label>
+              <Label htmlFor="chauffeur_id">Conducteur</Label>
               <Select value={localFiltres.chauffeur_id?.toString() || ''} onValueChange={(v) => handleChange('chauffeur_id', v)}>
                 <SelectTrigger id="chauffeur_id">
-                  <SelectValue placeholder="Tous les chauffeurs" />
+                  <SelectValue placeholder="Tous les conducteurs" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="aucun">Tous les chauffeurs</SelectItem>
+                  <SelectItem value="aucun">Tous les conducteurs</SelectItem>
                 </SelectContent>
               </Select>
             </div>

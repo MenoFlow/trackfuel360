@@ -1,7 +1,7 @@
 export const MODULE_CATALOG = [
   { code: 'fuel', label: 'Carburant', phase: 'MVP', enabledByDefault: true },
   { code: 'fleet', label: 'Parc roulant', phase: 'MVP', enabledByDefault: true },
-  { code: 'drivers', label: 'Chauffeurs', phase: 'MVP', enabledByDefault: true },
+  { code: 'drivers', label: 'Conducteurs', phase: 'MVP', enabledByDefault: true },
   { code: 'missions', label: 'Ordres de mission', phase: 'MVP', enabledByDefault: true },
   { code: 'maintenance', label: 'Maintenance de base', phase: 'MVP', enabledByDefault: true },
   { code: 'documents', label: 'Documents et rappels', phase: 'MVP', enabledByDefault: true },
@@ -24,7 +24,7 @@ export const DEFAULT_ROLE_MODULES = {
   manager: ['fuel', 'fleet', 'drivers', 'missions', 'maintenance', 'documents', 'reporting', 'gps', 'planning', 'budgets', 'workshop_stock'],
   supervisor: ['fuel', 'fleet', 'drivers', 'missions', 'maintenance', 'documents', 'reporting', 'gps', 'planning', 'budgets', 'workshop_stock'],
   auditor: ['fuel', 'fleet', 'documents', 'reporting', 'budgets'],
-  driver: ['fuel', 'missions'],
+  conducteur: ['fuel', 'missions', 'maintenance'],
 };
 
 export const MVP_MODULE_CODES = MODULE_CATALOG

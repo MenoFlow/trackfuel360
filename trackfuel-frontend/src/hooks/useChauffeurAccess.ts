@@ -11,6 +11,7 @@ export const useChauffeurAccess = () => {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
+        if (user?.role === 'driver') user.role = 'conducteur';
         setCurrentUser(user);
       } catch (error) {
         console.error('Erreur de parsing user:', error);
@@ -27,7 +28,7 @@ export const useChauffeurAccess = () => {
   };
 
   const isAuthenticated = !!currentUser;
-  const isDriver = currentUser?.role === 'driver';
+  const isDriver = currentUser?.role === 'conducteur';
   const isAdmin = currentUser?.role === 'admin';
   const isManager = currentUser?.role === 'manager';
   const isSupervisor = currentUser?.role === 'supervisor';

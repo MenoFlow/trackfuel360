@@ -56,7 +56,7 @@ const GestionModules = () => {
               <SelectContent>
                 <SelectItem value="fuel_only">Simple controle du carburant</SelectItem>
                 <SelectItem value="fleet_only">Simple gestion du parc</SelectItem>
-                <SelectItem value="fuel_fleet_drivers">Carburant + parc + chauffeurs</SelectItem>
+                <SelectItem value="fuel_fleet_drivers">Carburant + parc + conducteurs</SelectItem>
                 <SelectItem value="complete">Solution complete</SelectItem>
               </SelectContent>
             </Select>

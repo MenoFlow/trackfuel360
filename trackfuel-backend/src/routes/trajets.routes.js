@@ -2,6 +2,38 @@ import express from 'express';
 const router = express.Router();
 import db from '../config/database.js';
 import { createTripSchema, updateTripSchema } from '../validators/trajet.validator.js';
+import {
+  buildAssignmentCoverageResponse,
+  buildConflictResponse,
+  buildDriverIneligibleResponse,
+  buildVehicleUnavailableResponse,
+  getAssignmentCoverage,
+  getAvailabilityConflicts,
+  getDriverEligibility,
+  getVehicleUnavailability,
+  toMysqlDateTime,
+} from '../services/availabilityService.js';
+
+const getFuelContext = async (connection, vehiculeId, beforeDate, excludeTripId = null) => {
+  let excludeSql = '';
+  const params = [vehiculeId, toMysqlDateTime(beforeDate)];
+  if (excludeTripId) {
+    excludeSql = 'AND (trajet_id IS NULL OR trajet_id <> ?)';
+    params.push(String(excludeTripId));
+  }
+
+  const [niveauRow] = await connection.execute(`
+    SELECT niveau, timestamp
+    FROM niveaux_carburant
+    WHERE vehicule_id = ?
+      AND timestamp <= ?
+      ${excludeSql}
+    ORDER BY timestamp DESC
+    LIMIT 1
+  `, params);
+
+  return niveauRow[0] || null;
+};
 
 /**
  * GET /trips
@@ -93,23 +125,47 @@ router.post('/', async (req, res) => {
     `, [vehicule_id]);
     if (!veh.length) return res.status(400).json({ error: 'Véhicule introuvable' });
 
-    const [chauf] = await db.execute('SELECT id FROM users WHERE id = ?', [chauffeur_id]);
-    if (!chauf.length) return res.status(400).json({ error: 'Chauffeur introuvable' });
+    const unavailability = await getVehicleUnavailability(db, vehicule_id);
+    if (unavailability) {
+      return res.status(unavailability.code === 'VEHICLE_NOT_FOUND' ? 400 : 409).json(buildVehicleUnavailableResponse(unavailability));
+    }
+
+    const driverEligibility = await getDriverEligibility(db, chauffeur_id);
+    if (driverEligibility) {
+      return res.status(driverEligibility.code === 'DRIVER_NOT_FOUND' ? 400 : 409).json(buildDriverIneligibleResponse(driverEligibility));
+    }
+
+    const coverage = await getAssignmentCoverage(db, {
+      chauffeurId: chauffeur_id,
+      vehiculeId: vehicule_id,
+      start: date_debut,
+      end: date_fin,
+    });
+    if (coverage) {
+      return res.status(409).json(buildAssignmentCoverageResponse(coverage));
+    }
+
+    const availability = await getAvailabilityConflicts(db, {
+      chauffeurId: chauffeur_id,
+      vehiculeId: vehicule_id,
+      start: date_debut,
+      end: date_fin,
+      includeAffectations: false,
+      includeMissions: false,
+      includeReservations: false,
+    });
+    if (availability.hasConflict) {
+      return res.status(409).json(buildConflictResponse(availability));
+    }
 
     const capacite = parseFloat(veh[0].capacite_reservoir) || 60;
     const consoNominale = parseFloat(veh[0].consommation_nominale) || 8;
 
     // Récupérer le dernier niveau de carburant connu avant le début du trajet
-    const [niveauRow] = await db.execute(`
-      SELECT niveau, timestamp
-      FROM niveaux_carburant
-      WHERE vehicule_id = ? 
-      ORDER BY timestamp DESC 
-      LIMIT 1
-    `, [vehicule_id]);
+    const niveauRow = await getFuelContext(db, vehicule_id, date_debut);
 
-    const niveauDernier = niveauRow.length 
-      ? parseFloat(niveauRow[0].niveau)
+    const niveauDernier = niveauRow
+      ? parseFloat(niveauRow.niveau)
       : capacite * 0.6; // Valeur par défaut si aucune donnée existante
 
     // Calcul de la consommation estimée pour ce trajet
@@ -137,7 +193,7 @@ router.post('/', async (req, res) => {
       INSERT INTO trips 
         (vehicule_id, chauffeur_id, date_debut, date_fin, distance_km, type_saisie)
       VALUES (?, ?, ?, ?, ?, ?)
-    `, [vehicule_id, chauffeur_id, date_debut, date_fin, distance_km, type_saisie]);
+    `, [vehicule_id, chauffeur_id, toMysqlDateTime(date_debut), toMysqlDateTime(date_fin), distance_km, type_saisie]);
 
     const tripId = tripResult.insertId;
 
@@ -172,19 +228,16 @@ router.post('/', async (req, res) => {
     const chuteReelle = niveauAvant - niveauApres;
     const volDetecte = chuteReelle > consoEstimee + 5;
 
+    const [createdRows] = await connection.execute('SELECT * FROM trips WHERE id = ?', [tripId]);
     await connection.commit();
 
     res.status(201).json({
-      message: 'Trajet créé avec succès',
-      trip: {
-        id: tripId,
-        distance_km,
-        conso_estimee: `${consoEstimee.toFixed(1)} L`,
-        niveau_avant: `${niveauAvant.toFixed(1)} L`,
-        niveau_apres: `${niveauApres.toFixed(1)} L`,
-        vol_detecte: volDetecte ? 'OUI → ALERTE !' : 'Non',
-        points_gps: traceGps.length
-      }
+      ...createdRows[0],
+      conso_estimee: `${consoEstimee.toFixed(1)} L`,
+      niveau_avant: `${niveauAvant.toFixed(1)} L`,
+      niveau_apres: `${niveauApres.toFixed(1)} L`,
+      vol_detecte: volDetecte,
+      traceGps,
     });
 
   } catch (error) {
@@ -204,22 +257,81 @@ router.post('/', async (req, res) => {
  * Update an existing trip
  */
 router.put('/:id', async (req, res) => {
+  let connection = null;
   try {
     const { id } = req.params;
-    const {
-      vehicule_id,
-      chauffeur_id,
-      date_debut,
-      date_fin,
-      distance_km,
-      type_saisie,
-      traceGps = []
-    } = await updateTripSchema.validateAsync(req.body);
+    const updateData = await updateTripSchema.validateAsync(req.body);
 
-    const [existing] = await db.execute('SELECT id FROM trips WHERE id = ?', [id]);
+    const [existing] = await db.execute('SELECT * FROM trips WHERE id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Trip not found' });
     }
+    const nextData = { ...existing[0], ...updateData };
+    if (new Date(nextData.date_fin) <= new Date(nextData.date_debut)) {
+      return res.status(400).json({ error: 'La date de fin doit être après la date de début' });
+    }
+
+    const [veh] = await db.execute(
+      'SELECT id, capacite_reservoir, consommation_nominale FROM vehicules WHERE id = ?',
+      [nextData.vehicule_id]
+    );
+    if (!veh.length) return res.status(400).json({ error: 'Véhicule introuvable' });
+
+    const unavailability = await getVehicleUnavailability(db, nextData.vehicule_id);
+    if (unavailability) {
+      return res.status(unavailability.code === 'VEHICLE_NOT_FOUND' ? 400 : 409).json(buildVehicleUnavailableResponse(unavailability));
+    }
+
+    const driverEligibility = await getDriverEligibility(db, nextData.chauffeur_id);
+    if (driverEligibility) {
+      return res.status(driverEligibility.code === 'DRIVER_NOT_FOUND' ? 400 : 409).json(buildDriverIneligibleResponse(driverEligibility));
+    }
+
+    const coverage = await getAssignmentCoverage(db, {
+      chauffeurId: nextData.chauffeur_id,
+      vehiculeId: nextData.vehicule_id,
+      start: nextData.date_debut,
+      end: nextData.date_fin,
+    });
+    if (coverage) {
+      return res.status(409).json(buildAssignmentCoverageResponse(coverage));
+    }
+
+    const availability = await getAvailabilityConflicts(db, {
+      chauffeurId: nextData.chauffeur_id,
+      vehiculeId: nextData.vehicule_id,
+      start: nextData.date_debut,
+      end: nextData.date_fin,
+      excludeTripId: id,
+      includeAffectations: false,
+      includeMissions: false,
+      includeReservations: false,
+    });
+    if (availability.hasConflict) {
+      return res.status(409).json(buildConflictResponse(availability));
+    }
+
+    const capacite = parseFloat(veh[0].capacite_reservoir) || 60;
+    const consoNominale = parseFloat(veh[0].consommation_nominale) || 8;
+    const previousLevel = await getFuelContext(db, nextData.vehicule_id, nextData.date_debut, id);
+    const niveauAvant = previousLevel ? parseFloat(previousLevel.niveau) : capacite * 0.6;
+    const consoEstimee = (Number(nextData.distance_km) * consoNominale) / 100;
+
+    if (consoEstimee > niveauAvant) {
+      const distancePossible = (niveauAvant / consoNominale) * 100;
+      return res.status(400).json({
+        error: 'Carburant insuffisant pour ce trajet.',
+        code: 'INSUFFICIENT_FUEL',
+        details: {
+          niveau_actuel: `${niveauAvant.toFixed(1)} L`,
+          consommation_estimee: `${consoEstimee.toFixed(1)} L`,
+          distance_possible: `${distancePossible.toFixed(1)} km`,
+        },
+      });
+    }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
     const sql = `
       UPDATE trips 
@@ -227,18 +339,32 @@ router.put('/:id', async (req, res) => {
           distance_km = ?, type_saisie = ?
       WHERE id = ?
     `;
-    await db.execute(sql, [
-      vehicule_id,
-      chauffeur_id,
-      date_debut,
-      date_fin,
-      distance_km,
-      type_saisie,
+    await connection.execute(sql, [
+      nextData.vehicule_id,
+      nextData.chauffeur_id,
+      toMysqlDateTime(nextData.date_debut),
+      toMysqlDateTime(nextData.date_fin),
+      nextData.distance_km,
+      nextData.type_saisie,
       id
     ]);
 
+    await connection.execute('DELETE FROM niveaux_carburant WHERE trajet_id = ?', [id]);
+    const niveauApres = Math.max(niveauAvant - consoEstimee, 0);
+    await connection.execute(`
+      INSERT INTO niveaux_carburant 
+        (vehicule_id, timestamp, niveau, type, trajet_id)
+      VALUES
+        (?, ?, ?, 'avant_trajet', ?),
+        (?, ?, ?, 'apres_trajet', ?)
+    `, [
+      nextData.vehicule_id, toMysqlDateTime(nextData.date_debut), niveauAvant, id,
+      nextData.vehicule_id, toMysqlDateTime(nextData.date_fin), niveauApres, id,
+    ]);
+
     // Supprimer anciens points GPS et réinsérer si fournis
-    await db.execute('DELETE FROM traceGps WHERE trajet_id = ?', [id]);
+    await connection.execute('DELETE FROM traceGps WHERE trajet_id = ?', [id]);
+    const traceGps = updateData.traceGps || [];
     if (traceGps.length > 0) {
       const gpsSql = `
         INSERT INTO traceGps (trajet_id, sequence, latitude, longitude, timestamp)
@@ -246,7 +372,7 @@ router.put('/:id', async (req, res) => {
       `;
       for (let i = 0; i < traceGps.length; i++) {
         const p = traceGps[i];
-        await db.execute(gpsSql, [
+        await connection.execute(gpsSql, [
           
           id,
           i + 1,
@@ -257,13 +383,21 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    res.json({ message: 'Trip updated successfully', id });
+    const [updatedRows] = await connection.execute('SELECT * FROM trips WHERE id = ?', [id]);
+    await connection.commit();
+    res.json(updatedRows[0]);
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (e) {}
+    }
     console.error('Error updating trip:', error);
-    res.status(500).json({
+    const status = error.isJoi ? 400 : 500;
+    res.status(status).json({
       error: 'Failed to update trip',
       message: error.message
     });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
@@ -272,6 +406,7 @@ router.put('/:id', async (req, res) => {
  * Delete a trip by ID (and its GPS points)
  */
 router.delete('/:id', async (req, res) => {
+  let connection = null;
   try {
     const { id } = req.params;
     const [existing] = await db.execute('SELECT id FROM trips WHERE id = ?', [id]);
@@ -279,16 +414,25 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Trip not found' });
     }
 
-    await db.execute('DELETE FROM traceGps WHERE trajet_id = ?', [id]);
-    await db.execute('DELETE FROM trips WHERE id = ?', [id]);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    await connection.execute('DELETE FROM niveaux_carburant WHERE trajet_id = ?', [id]);
+    await connection.execute('DELETE FROM traceGps WHERE trajet_id = ?', [id]);
+    await connection.execute('DELETE FROM trips WHERE id = ?', [id]);
+    await connection.commit();
 
     res.json({ message: 'Trip and GPS points deleted successfully', id });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (e) {}
+    }
     console.error('Error deleting trip:', error);
     res.status(500).json({
       error: 'Failed to delete trip',
       message: error.message
     });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

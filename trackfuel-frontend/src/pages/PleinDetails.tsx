@@ -196,7 +196,7 @@ const PleinDetails = () => {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Chauffeur</p>
+                <p className="text-sm text-muted-foreground">Conducteur</p>
                 <p className="font-semibold">
                   {chauffeur
                     ? `${chauffeur.prenom} ${chauffeur.nom}`
@@ -384,7 +384,7 @@ const PleinDetails = () => {
 
                   <Separator />
 
-                  Chauffeur détecté
+                  Conducteur détecté
                   {(ocrData.chauffeur_nom || ocrData.chauffeur_prenom || ocrData.chauffeur_matricule) ? (
                     <p className="font-medium">
                       {ocrData.chauffeur_prenom} {ocrData.chauffeur_nom}

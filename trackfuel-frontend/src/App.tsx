@@ -68,9 +68,10 @@ const ProtectedRoute = ({
 
   try {
     const currentUser = JSON.parse(currentUserStr);
+    if (currentUser?.role === "driver") currentUser.role = "conducteur";
 
     if (!roleIncludes(currentUser.role, allowedRoles)) {
-      if (currentUser.role === "driver") {
+      if (currentUser.role === "conducteur") {
         return <Navigate to="/chauffeur" replace />;
       }
         // 👉 Ajout du toast avant la redirection
@@ -183,9 +184,9 @@ const router = createBrowserRouter(
     { path: "/parametres/notifications", element: withMotion(<NotificationParameters />, "slideUp", true, ["admin", "manager"]) },
 
     // Chauffeur routes
-    { path: "/chauffeur", element: withMotion(<DashboardChauffeur />, "slideUp", true, ["driver"]) },
-    { path: "/chauffeur/demande-correction", element: withMotion(<DemandeCorrectionForm />, "slideUp", true, ["driver"]) },
-    { path: "/chauffeur/ajouter-plein", element: withMotion(<AjoutPleinForm />, "slideUp", true, ["driver"]) },
+    { path: "/chauffeur", element: withMotion(<DashboardChauffeur />, "slideUp", true, ["conducteur"]) },
+    { path: "/chauffeur/demande-correction", element: withMotion(<DemandeCorrectionForm />, "slideUp", true, ["conducteur"]) },
+    { path: "/chauffeur/ajouter-plein", element: withMotion(<AjoutPleinForm />, "slideUp", true, ["conducteur"]) },
 
     // Map / Comparison
     { path: "/geofence", element: withMotion(<MapView />, "slideUp", true, ["admin", "manager"], "gps") },

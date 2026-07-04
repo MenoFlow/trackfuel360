@@ -4,7 +4,7 @@ COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
 
-ARG VITE_API_BASE_URL=http://app:8086
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build

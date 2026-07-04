@@ -5,16 +5,11 @@ import { genererRapport } from '@/lib/services/rapportService';
 import * as rapportStorage from '@/lib/services/rapportStorage';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
 const apiUrl = (path: string) => `${API_BASE}${path}`;
 
 async function saveRapportToBackend(rapport: RapportData): Promise<void> {
-  if (!API_BASE) {
-    await rapportStorage.storeRapport(rapport);
-    return;
-  }
-
   const response = await fetch(apiUrl('/api/rapports'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -87,9 +82,11 @@ export const useHistoriqueRapports = () => {
     queryKey: ['rapports-historique'],
     queryFn: async (): Promise<RapportMetadata[]> => {
       console.log('[useRapports] Récupération historique rapports');
-      if (API_BASE) {
+      try {
         const response = await fetch(apiUrl('/api/rapports/history?limit=5'));
         if (response.ok) return response.json();
+      } catch (error) {
+        console.warn('[useRapports] Historique serveur indisponible, fallback IndexedDB:', error);
       }
 
       await delay(300);
@@ -110,9 +107,11 @@ export const useRapport = (rapportId: string) => {
     queryKey: ['rapport', rapportId],
     queryFn: async (): Promise<RapportData | null> => {
       console.log('[useRapports] Recherche rapport:', rapportId);
-      if (API_BASE) {
+      try {
         const response = await fetch(apiUrl(`/api/rapports/${encodeURIComponent(rapportId)}`));
         if (response.ok) return response.json();
+      } catch (error) {
+        console.warn('[useRapports] Lecture serveur indisponible, fallback IndexedDB:', error);
       }
 
       await delay(200);
@@ -134,21 +133,19 @@ export const useRapportShare = (token: string | undefined) => {
   return useQuery({
     queryKey: ['rapport-share', token],
     queryFn: async (): Promise<{ rapport: RapportData; format: any; expires_at: string } | null> => {
-      if (!API_BASE || !token) return null;
+      if (!token) return null;
 
       const response = await fetch(apiUrl(`/api/rapports/share/${encodeURIComponent(token)}`));
       if (response.status === 404 || response.status === 410) return null;
       if (!response.ok) throw new Error('Lien de rapport indisponible');
       return response.json();
     },
-    enabled: Boolean(API_BASE && token),
+    enabled: Boolean(token),
     retry: false,
   });
 };
 
 export async function creerLienRapport(rapportId: string, format: string = 'pdf', expirationMinutes = 24 * 60) {
-  if (!API_BASE) return null;
-
   const response = await fetch(apiUrl(`/api/rapports/${encodeURIComponent(rapportId)}/share`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

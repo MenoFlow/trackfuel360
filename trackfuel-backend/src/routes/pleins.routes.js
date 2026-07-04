@@ -12,6 +12,14 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import ExifParser from 'exif-parser';
+import {
+  buildAssignmentCoverageResponse,
+  buildDriverIneligibleResponse,
+  buildVehicleUnavailableResponse,
+  getAssignmentCoverage,
+  getDriverEligibility,
+  getVehicleUnavailability,
+} from '../services/availabilityService.js';
 
 /**
  * GET /api/pleins
@@ -127,7 +135,12 @@ const createPlein = async (req, res) => {
   try {
     connection = await db.getConnection();
 
-    const pleinData = req.body;
+    const pleinData = await createPleinSchema.validateAsync({
+      ...req.body,
+      prix_unitaire: req.body.prix_unitaire || PRIX_UNITAIRE_FIXE,
+      station: req.body.station || 'Non renseignée',
+      type_saisie: req.body.type_saisie || 'manuelle',
+    }, { stripUnknown: true });
 
     console.log(pleinData);
 
@@ -138,6 +151,10 @@ const createPlein = async (req, res) => {
     );
     if (!vehiculeRows.length) {
       return res.status(400).json({ error: 'Véhicule non trouvé' });
+    }
+    const unavailability = await getVehicleUnavailability(connection, pleinData.vehicule_id);
+    if (unavailability) {
+      return res.status(unavailability.code === 'VEHICLE_NOT_FOUND' ? 400 : 409).json(buildVehicleUnavailableResponse(unavailability));
     }
     const vehicule = vehiculeRows[0];
     kmInitial = parseFloat(vehicule.kilometrage_initial) || 0;
@@ -186,13 +203,21 @@ const createPlein = async (req, res) => {
     };
     const hasOcrData = Object.values(ocr).some(v => v !== null);
 
-    // === 3. Chauffeur ===
-    const [chauffeurRows] = await connection.execute(
-      'SELECT id FROM users WHERE id = ?',
-      [pleinData.chauffeur_id]
-    );
-    if (!chauffeurRows.length) {
-      throw new Error('Chauffeur non trouvé');
+    // === 3. Conducteur ===
+    const driverEligibility = await getDriverEligibility(connection, pleinData.chauffeur_id);
+    if (driverEligibility) {
+      await connection.rollback();
+      return res.status(driverEligibility.code === 'DRIVER_NOT_FOUND' ? 400 : 409).json(buildDriverIneligibleResponse(driverEligibility));
+    }
+
+    const coverage = await getAssignmentCoverage(connection, {
+      chauffeurId: pleinData.chauffeur_id,
+      vehiculeId: pleinData.vehicule_id,
+      start: pleinData.date,
+    });
+    if (coverage) {
+      await connection.rollback();
+      return res.status(409).json(buildAssignmentCoverageResponse(coverage));
     }
 
     // === 4. Niveau carburant & capacité réservoir ===
@@ -369,7 +394,17 @@ const createPlein = async (req, res) => {
       });
     }
 
-    if (error.message === 'Véhicule non trouvé' || error.message === 'Chauffeur non trouvé') {
+    if (error.isJoi) {
+      return res.status(400).json({
+        error: 'Données invalides',
+        details: error.details.map(d => ({
+          field: d.path.join('.'),
+          message: d.message,
+        })),
+      });
+    }
+
+    if (error.message === 'Véhicule non trouvé' || error.message === 'Conducteur non trouvé') {
       return res.status(400).json({ error: error.message });
     }
 
@@ -400,6 +435,16 @@ router.put('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Plein non trouvé' });
     }
 
+    const ledgerFields = ['vehicule_id', 'chauffeur_id', 'date', 'litres', 'odometre'];
+    const touchesLedger = ledgerFields.some((field) => Object.prototype.hasOwnProperty.call(updateData, field));
+    if (touchesLedger) {
+      return res.status(409).json({
+        error: "La modification d'un champ qui impacte l'historique carburant doit passer par une correction validée avec recalcul.",
+        code: 'FUEL_LEDGER_RECALC_REQUIRED',
+        blocked_fields: ledgerFields.filter((field) => Object.prototype.hasOwnProperty.call(updateData, field)),
+      });
+    }
+
     // Vérifier les FK si modifiées
     if (updateData.vehicule_id) {
       const [v] = await db.execute('SELECT id FROM vehicules WHERE id = ?', [updateData.vehicule_id]);
@@ -407,7 +452,7 @@ router.put('/:id', async (req, res, next) => {
     }
     if (updateData.chauffeur_id) {
       const [c] = await db.execute('SELECT id FROM users WHERE id = ?', [updateData.chauffeur_id]);
-      if (c.length === 0) return res.status(400).json({ error: 'Chauffeur non trouvé' });
+      if (c.length === 0) return res.status(400).json({ error: 'Conducteur non trouvé' });
     }
 
     const fields = Object.keys(updateData);
@@ -440,18 +485,27 @@ router.put('/:id', async (req, res, next) => {
  * Description: Supprimer un plein
  */
 router.delete('/:id', async (req, res, next) => {
+  const connection = await db.getConnection();
   try {
     const { id } = req.params;
 
-    const [existing] = await db.execute('SELECT id FROM pleins WHERE id = ?', [id]);
+    const [existing] = await connection.execute('SELECT id FROM pleins WHERE id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Plein non trouvé' });
     }
 
-    await db.execute('DELETE FROM pleins WHERE id = ?', [id]);
+    await connection.beginTransaction();
+    await connection.execute('DELETE FROM niveaux_carburant WHERE plein_id = ?', [id]);
+    await connection.execute('DELETE FROM bons_carburant_scannes WHERE plein_id = ?', [id]);
+    await connection.execute('DELETE FROM plein_exif_metadata WHERE plein_id = ?', [id]);
+    await connection.execute('DELETE FROM pleins WHERE id = ?', [id]);
+    await connection.commit();
     res.json({ success: true });
   } catch (error) {
+    await connection.rollback();
     next(error);
+  } finally {
+    connection.release();
   }
 });
 

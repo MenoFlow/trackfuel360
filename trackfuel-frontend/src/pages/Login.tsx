@@ -39,7 +39,7 @@ export default function Login() {
           title: t('login.successTitle'),
           description: `${t('login.successMessage')} ${result.user.prenom} ${result.user.nom}`,
         });
-        navigate(result.user.role === 'driver' ? '/chauffeur' : '/');
+        navigate(result.user.role === 'conducteur' ? '/chauffeur' : '/');
       } else {
         toast({
           title: t('login.errorTitle'),

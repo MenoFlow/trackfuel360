@@ -27,7 +27,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 const FALLBACK_MVP: AppModule[] = [
   { code: 'fuel', label: 'Carburant', phase: 'MVP', enabled: true, allowed: true },
   { code: 'fleet', label: 'Parc roulant', phase: 'MVP', enabled: true, allowed: true },
-  { code: 'drivers', label: 'Chauffeurs', phase: 'MVP', enabled: true, allowed: true },
+  { code: 'drivers', label: 'Conducteurs', phase: 'MVP', enabled: true, allowed: true },
   { code: 'missions', label: 'Ordres de mission', phase: 'MVP', enabled: true, allowed: true },
   { code: 'maintenance', label: 'Maintenance de base', phase: 'MVP', enabled: true, allowed: true },
   { code: 'documents', label: 'Documents et rappels', phase: 'MVP', enabled: true, allowed: true },
@@ -44,8 +44,6 @@ export const useModules = () => {
   return useQuery({
     queryKey: ['modules', currentRole()],
     queryFn: async (): Promise<AppModule[]> => {
-      if (!API_BASE) return FALLBACK_MVP;
-
       const response = await fetch(`${API_BASE}/api/modules?client_id=${getCurrentClientId()}&role=${currentRole()}`);
       if (!response.ok) return FALLBACK_MVP;
       return response.json();

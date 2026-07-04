@@ -18,6 +18,19 @@ import {
 /* -------------------------------------------------------------------------- */
 const nowMysql = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+const CORRECTION_WHITELIST = {
+  pleins: ['station', 'prix_unitaire', 'type_saisie', 'latitude', 'longitude'],
+  trips: ['type_saisie'],
+  documents_administratifs: ['reference', 'fichier_url'],
+  users: ['nom', 'prenom', 'fonction', 'site_id'],
+  vehicules: ['marque', 'modele', 'site_id'],
+};
+
+const isCorrectionAllowed = (table, champ) => {
+  const allowedFields = CORRECTION_WHITELIST[table];
+  return Boolean(allowedFields?.includes(champ));
+};
+
 /* -------------------------------------------------------------------------- */
 /*  GET /api/corrections  – Liste (filtres optionnels)                        */
 /* -------------------------------------------------------------------------- */
@@ -80,6 +93,16 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const data = await createCorrectionSchema.validateAsync(req.body);
+
+    if (!isCorrectionAllowed(data.table, data.champ)) {
+      return res.status(409).json({
+        error: 'Cette correction touche un champ protégé par les règles métier.',
+        code: 'CORRECTION_RULE_VIOLATION',
+        table: data.table,
+        champ: data.champ,
+        message: 'Utilisez le workflow du module concerné afin de rejouer les contrôles métier.',
+      });
+    }
 
     // 1. Vérifier que l’enregistrement cible existe
     const [exists] = await db.execute(
@@ -144,6 +167,16 @@ router.patch('/:id/validate', async (req, res, next) => {
       });
     }
     const corr = rows[0];
+
+    if (!isCorrectionAllowed(corr.table, corr.champ)) {
+      return res.status(409).json({
+        error: 'Cette correction touche un champ protégé par les règles métier.',
+        code: 'CORRECTION_RULE_VIOLATION',
+        table: corr.table,
+        champ: corr.champ,
+        message: 'Validation refusée: la correction contournerait les règles métier du module.',
+      });
+    }
 
     // 2. Parser la nouvelle valeur
     let newVal;

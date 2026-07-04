@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useNavigate } from 'react-router-dom';
 import { VehicleDialog } from '@/components/Vehicules/VehicleDialog';
 import { useDeleteVehicule } from '@/hooks/useVehicules';
+import { getVehicleStatusBadgeVariant, getVehicleStatusLabel, getVehicleUnavailableReason, isVehicleOutOfService } from '@/lib/vehicleStatus';
 
 
 const Vehicules = () => {
@@ -261,8 +262,8 @@ const Vehicules = () => {
                         </p>
                       </div>
                     </div>
-                    <Badge variant={vehicule.actif ? "secondary" : "destructive"}>
-                      {vehicule.actif ? t('vehicles.active') : t('vehicles.inactive')}
+                    <Badge variant={getVehicleStatusBadgeVariant(vehicule)}>
+                      {getVehicleStatusLabel(vehicule)}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -289,7 +290,13 @@ const Vehicules = () => {
                   <Button variant="outline" className="w-full mt-4" onClick={() =>  navigate(`/vehicle/${vehicule.id}`)}>
                   {t('vehicles.viewDetails')}
                   </Button>
-                  <Button variant="outline" onClick={() => navigate("/trips/"+vehicule.id)} className="w-full mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/trips/"+vehicule.id)}
+                    className="w-full mt-4"
+                    disabled={isVehicleOutOfService(vehicule)}
+                    title={getVehicleUnavailableReason(vehicule) || 'Trajets'}
+                  >
                     Trajets 
                   </Button>
                 </CardContent>

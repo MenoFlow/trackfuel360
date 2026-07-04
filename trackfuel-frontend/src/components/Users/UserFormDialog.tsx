@@ -19,6 +19,7 @@ import { useState, useEffect } from "react";
 import { useSites } from "@/hooks/useSites";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
+import { FONCTION_LABELS, ROLE_LABELS, USER_FONCTIONS } from "@/lib/userLabels";
 
 interface UserFormDialogProps {
   open: boolean;
@@ -44,7 +45,8 @@ export const UserFormDialog = ({
     matricule: "",
     nom: "",
     prenom: "",
-    role: "driver",
+    role: "conducteur",
+    fonction: "conducteur",
   });
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export const UserFormDialog = ({
         nom: user.nom,
         prenom: user.prenom,
         role: user.role,
+        fonction: user.fonction ?? "conducteur",
         site_id: user.site_id ?? null,
       });
       setPassword("");
@@ -64,7 +67,8 @@ export const UserFormDialog = ({
         matricule: "",
         nom: "",
         prenom: "",
-        role: "driver",
+        role: "conducteur",
+        fonction: "conducteur",
       });
       setPassword("");
     }
@@ -90,7 +94,7 @@ export const UserFormDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {user ? t("users.editUser") : t("users.newUser")}
@@ -200,25 +204,38 @@ export const UserFormDialog = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">{t("users.roles.admin")}</SelectItem>
-                <SelectItem value="manager">
-                  {t("users.roles.manager")}
-                </SelectItem>
-                {/* <SelectItem value="supervisor">
-                  {t("users.roles.supervisor")}
-                </SelectItem> */}
-                <SelectItem value="driver">
-                  {t("users.roles.driver")}
-                </SelectItem>
-                <SelectItem value="auditor">
-                  {t("users.roles.auditor")}
-                </SelectItem>
+                <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
+                <SelectItem value="supervisor">{ROLE_LABELS.supervisor}</SelectItem>
+                <SelectItem value="conducteur">{ROLE_LABELS.conducteur}</SelectItem>
+                <SelectItem value="auditor">{ROLE_LABELS.auditor}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fonction">Fonction</Label>
+            <Select
+              value={formData.fonction ?? "conducteur"}
+              onValueChange={(value) =>
+                setFormData({ ...formData, fonction: value as User["fonction"] })
+              }
+            >
+              <SelectTrigger id="fonction">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {USER_FONCTIONS.map((fonction) => (
+                  <SelectItem key={fonction} value={fonction}>
+                    {FONCTION_LABELS[fonction]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           {(
-            formData.role === "driver") && (
+            formData.role === "conducteur") && (
             <div className="space-y-2">
               <Label htmlFor="site">
                 {t("vehicles.site")} ({t("common.new")})
@@ -229,7 +246,7 @@ export const UserFormDialog = ({
                   setFormData({
                     ...formData,
                     site_id:
-                      (value === "" || "aucun") ? null : parseInt(value),
+                      value === "" || value === "aucun" ? null : parseInt(value),
                   })
                 }
               >

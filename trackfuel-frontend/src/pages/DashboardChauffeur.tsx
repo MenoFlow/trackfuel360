@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Car, Fuel, Route, AlertTriangle, Plus, FileEdit, ClipboardList, Check, X } from 'lucide-react';
+import { Car, Fuel, Route, AlertTriangle, Plus, FileEdit, ClipboardList, Check, X, Wrench } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -36,6 +39,8 @@ import Header from '@/components/Chauffeur/Header';
 import { generateAlertes } from '@/lib/services/alerteService';
 import { useAggregatedData } from '@/lib/mockData';
 import { toast } from 'sonner';
+import { getVehicleStatusBadgeVariant, getVehicleStatusLabel, getVehicleUnavailableReason, isVehicleOutOfService } from '@/lib/vehicleStatus';
+import { AvailabilityConflictDialog } from '@/components/common/AvailabilityConflictDialog';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -45,6 +50,19 @@ const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
   rejetee: { label: 'Refusée', className: 'bg-red-500 hover:bg-red-600 text-white' },
   en_cours: { label: 'En cours', className: 'bg-emerald-500 hover:bg-emerald-600 text-white' },
   terminee: { label: 'Terminée', className: 'bg-slate-200 dark:bg-slate-700' },
+};
+
+const TYPES_MAINTENANCE = ['vidange', 'pneus', 'freins', 'batterie', 'filtres', 'revision', 'reparation', 'panne', 'accident'] as const;
+const TYPE_LABELS: Record<string, string> = {
+  vidange: 'Vidange',
+  pneus: 'Pneus',
+  freins: 'Freins',
+  batterie: 'Batterie',
+  filtres: 'Filtres',
+  revision: 'Révision',
+  reparation: 'Réparation',
+  panne: 'Panne',
+  accident: 'Accident',
 };
 
 export default function DashboardChauffeur() {
@@ -81,6 +99,9 @@ export default function DashboardChauffeur() {
   });
   const [rejectMission, setRejectMission] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [maintenanceForm, setMaintenanceForm] = useState<any>({ type: 'revision', statut: 'planifie' });
+  const [availabilityConflict, setAvailabilityConflict] = useState<any>(null);
 
   const updateMissionStatus = useMutation({
     mutationFn: async ({ id, statut, motif_rejet }: { id: number; statut: string; motif_rejet?: string }) => {
@@ -91,7 +112,9 @@ export default function DashboardChauffeur() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Mise à jour impossible' }));
-        throw new Error(err.error || 'Mise à jour impossible');
+        const apiError = new Error(err.error || 'Mise à jour impossible') as Error & { availability?: any };
+        apiError.availability = err.availability;
+        throw apiError;
       }
       return res.json();
     },
@@ -101,6 +124,35 @@ export default function DashboardChauffeur() {
       setRejectMission(null);
       setRejectReason('');
       toast.success('Mission mise à jour');
+    },
+    onError: (error: Error & { availability?: any }) => {
+      if (error.availability) {
+        setAvailabilityConflict(error.availability);
+        return;
+      }
+      toast.error(error.message);
+    },
+  });
+
+  const createMaintenance = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_BASE}/api/maintenance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(maintenanceForm),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Planification impossible' }));
+        throw new Error(err.error || 'Planification impossible');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
+      setMaintenanceOpen(false);
+      setMaintenanceForm({ type: 'revision', statut: 'planifie' });
+      toast.success('Maintenance planifiée');
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -115,6 +167,8 @@ export default function DashboardChauffeur() {
     : [];
   const mesPleins = allPleins ? filterDataForDriver(allPleins, mesVehicules) : [];
   const mesTrajets = allTrajets ? filterDataForDriver(allTrajets, mesVehicules) : [];
+  const vehiculesDisponibles = mesVehicules.filter((v) => !isVehicleOutOfService(v));
+  const vehiculesHorsService = mesVehicules.filter((v) => isVehicleOutOfService(v));
   const mesAlertes = allAlertes ? allAlertes.filter(a => 
     a.chauffeur_id === currentUser.id
   ) : [];
@@ -149,13 +203,14 @@ export default function DashboardChauffeur() {
 
         {/* Actions rapides */}
         <motion.div 
-          className="grid gap-4 md:grid-cols-2"
+          className="grid gap-4 md:grid-cols-3"
           variants={staggerContainer}
           initial="initial"
           animate="animate"
         >
           <MotionWrapper variant="stagger" delay={0} as="div">
-            <Link to="/chauffeur/ajouter-plein">
+            {vehiculesDisponibles.length > 0 ? (
+              <Link to="/chauffeur/ajouter-plein">
             <Card className="cursor-pointer hover:border-primary transition-colors">
               <CardContent className="flex items-center gap-4 p-6">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
@@ -168,6 +223,19 @@ export default function DashboardChauffeur() {
               </CardContent>
             </Card>
           </Link>
+            ) : (
+              <Card className="opacity-70">
+                <CardContent className="flex items-center gap-4 p-6">
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{t('driver.addFuel')}</h3>
+                    <p className="text-sm text-muted-foreground">Action désactivée: aucun véhicule disponible.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </MotionWrapper>
           <MotionWrapper variant="stagger" delay={0.1} as="div">
             <Link
@@ -192,11 +260,27 @@ export default function DashboardChauffeur() {
             </Card>
           </Link>
           </MotionWrapper>
+          <MotionWrapper variant="stagger" delay={0.2} as="div">
+            <Card
+              className="cursor-pointer hover:border-primary transition-colors"
+              onClick={() => setMaintenanceOpen(true)}
+            >
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Wrench className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Planifier maintenance</h3>
+                  <p className="text-sm text-muted-foreground">Demander un entretien ou une réparation</p>
+                </div>
+              </CardContent>
+            </Card>
+          </MotionWrapper>
         </motion.div>
 
         {/* Statistiques */}
         <motion.div 
-          className="grid gap-4 md:grid-cols-3"
+          className="grid gap-4 md:grid-cols-4"
           variants={staggerContainer}
           initial="initial"
           animate="animate"
@@ -244,6 +328,20 @@ export default function DashboardChauffeur() {
               <p className="text-xs text-muted-foreground mt-1">
                 {mesTrajets.reduce((sum, t) => sum + t.distance_km, 0).toFixed(0)} {t('driver.kmTraveled')}
               </p>
+            </CardContent>
+          </Card>
+          </MotionWrapper>
+          <MotionWrapper variant="stagger" delay={0.3}>
+            <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-muted-foreground" />
+                Hors service
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-foreground">{vehiculesHorsService.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">maintenance ou inactivité</p>
             </CardContent>
           </Card>
           </MotionWrapper>
@@ -351,13 +449,24 @@ export default function DashboardChauffeur() {
                       <p className="text-sm text-muted-foreground">{v.marque} {v.modele}</p>
                     </div>
                     <div className='flex flex-col gap-2 justify-center'>
-                      <Button variant="outline" onClick={() => navigate("/trips/driver/"+v.id)} className="text-xs flex items-center justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate("/trips/driver/"+v.id)}
+                        className="text-xs flex items-center justify-center"
+                        disabled={isVehicleOutOfService(v)}
+                        title={getVehicleUnavailableReason(v) || 'Trajets'}
+                      >
                         <Route className="h-4 w-4 mr-2" />
                         <p className='hidden md:inline'>Trajets</p>
                       </Button>
-                      <Badge variant={v.actif ? "default" : "secondary" } className="flex items-center justify-center text-center">
-                        {v.actif ? t('vehicles.active') : t('vehicles.inactive')}
+                      <Badge variant={getVehicleStatusBadgeVariant(v)} className="flex items-center justify-center text-center">
+                        {getVehicleStatusLabel(v)}
                       </Badge>
+                      {v.prochaine_maintenance_date && !isVehicleOutOfService(v) && (
+                        <span className="text-xs text-muted-foreground text-center">
+                          Prévue le {new Date(v.prochaine_maintenance_date).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -431,6 +540,84 @@ export default function DashboardChauffeur() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={maintenanceOpen} onOpenChange={setMaintenanceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Planifier une maintenance</DialogTitle>
+            <DialogDescription>
+              Sélectionnez le véhicule concerné et décrivez l’intervention demandée.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Véhicule</Label>
+              <Select
+                value={maintenanceForm.vehicule_id?.toString() || ''}
+                onValueChange={(value) => setMaintenanceForm({ ...maintenanceForm, vehicule_id: Number(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un véhicule" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mesVehicules.map((v) => (
+                    <SelectItem key={v.id} value={String(v.id)}>
+                      {v.immatriculation} - {v.marque} {v.modele}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={maintenanceForm.type} onValueChange={(value) => setMaintenanceForm({ ...maintenanceForm, type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TYPES_MAINTENANCE.map((type) => (
+                      <SelectItem key={type} value={type}>{TYPE_LABELS[type]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Date prévue</Label>
+                <Input
+                  type="date"
+                  value={maintenanceForm.date_prevue || ''}
+                  onChange={(event) => setMaintenanceForm({ ...maintenanceForm, date_prevue: event.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={maintenanceForm.description || ''}
+                onChange={(event) => setMaintenanceForm({ ...maintenanceForm, description: event.target.value })}
+                placeholder="Ex: bruit au freinage, vidange à prévoir, contrôle pneus..."
+                className="min-h-28"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMaintenanceOpen(false)}>Annuler</Button>
+            <Button
+              onClick={() => createMaintenance.mutate()}
+              disabled={createMaintenance.isPending || !maintenanceForm.vehicule_id || !maintenanceForm.description}
+            >
+              {createMaintenance.isPending ? 'Planification...' : 'Planifier'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AvailabilityConflictDialog
+        open={Boolean(availabilityConflict)}
+        onOpenChange={(open) => !open && setAvailabilityConflict(null)}
+        availability={availabilityConflict}
+      />
     </div>
   );
 }

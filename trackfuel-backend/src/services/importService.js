@@ -103,7 +103,7 @@ const parseExcelFile = (fileBuffer) => {
 
 const tableConfigByType = {
   Site: { table: 'sites', keyFields: ['id'], columns: ['id', 'nom', 'ville', 'pays', 'created_at', 'updated_at'] },
-  User: { table: 'users', keyFields: ['id'], columns: ['id', 'email', 'matricule', 'nom', 'prenom', 'role', 'site_id', 'password_hash', 'created_at', 'updated_at'] },
+  User: { table: 'users', keyFields: ['id'], columns: ['id', 'email', 'matricule', 'nom', 'prenom', 'role', 'fonction', 'site_id', 'password_hash', 'created_at', 'updated_at'] },
   Vehicule: { table: 'vehicules', keyFields: ['id'], columns: ['id', 'immatriculation', 'marque', 'modele', 'type', 'capacite_reservoir', 'consommation_nominale', 'carburant_initial', 'kilometrage_initial', 'actif', 'site_id', 'created_at', 'updated_at'] },
   Trip: { table: 'trips', keyFields: ['id'], columns: ['id', 'vehicule_id', 'chauffeur_id', 'date_debut', 'date_fin', 'distance_km', 'type_saisie', 'created_at', 'updated_at'] },
   TraceGps: { table: 'traceGps', keyFields: ['id'], columns: ['id', 'trajet_id', 'sequence', 'latitude', 'longitude', 'timestamp'] },
@@ -455,6 +455,15 @@ async function insertGenericEntity(db, type, data) {
 
   if (type === 'User' && !data.password_hash) {
     data.password_hash = 'imported_user_change_me';
+  }
+
+  if (type === 'User') {
+    if (data.role === 'driver') data.role = 'conducteur';
+    data.fonction = data.fonction || (data.role === 'conducteur' ? 'conducteur' : 'autre');
+  }
+
+  if (type === 'RoleModulePermission' && data.role === 'driver') {
+    data.role = 'conducteur';
   }
 
   if (type === 'DocumentAdministratif') {

@@ -107,7 +107,7 @@ const ComparaisonFlotte = () => {
       'Consommation (L/100km)': c.consommation_l_100km,
       'Coût/km': c.cout_par_km,
       'Écart (%)': c.ecart_pct,
-      'Chauffeur': c.chauffeur_nom && c.chauffeur_prenom 
+      'Conducteur': c.chauffeur_nom && c.chauffeur_prenom 
         ? `${c.chauffeur_prenom} ${c.chauffeur_nom}` 
         : 'N/A',
       'Site': c.site_nom || 'N/A',
@@ -185,7 +185,7 @@ const ComparaisonFlotte = () => {
                 </Select>
               </div>
 
-              {/* Chauffeur */}
+              {/* Conducteur */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t('alerts.driver')}</label>
                 <Select value={chauffeurFilter} onValueChange={setChauffeurFilter}>

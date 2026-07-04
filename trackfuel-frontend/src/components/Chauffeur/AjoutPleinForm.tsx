@@ -38,6 +38,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { getVehicleStatusBadgeVariant, getVehicleStatusLabel, getVehicleUnavailableReason, isVehicleOutOfService } from "@/lib/vehicleStatus";
 
 // PRIX UNITAIRE FIXE (modifiable ici si besoin)
 const PRIX_UNITAIRE_FIXE = 6000.0; // Ariary par litre
@@ -93,6 +95,7 @@ export default function AjoutPleinForm() {
     if (!allVehicules || !affectations) return [];
     return filterVehiculesForDriver(allVehicules, affectations);
   }, [allVehicules, affectations, filterVehiculesForDriver]);
+  const selectedVehicule = mesVehicules.find((v) => String(v.id) === vehiculeId);
 
   // Calcul automatique en fonction du champ modifié
   useEffect(() => {
@@ -154,7 +157,7 @@ export default function AjoutPleinForm() {
       const litresMatch = text.match(/LITRES\s*:\s*([\d,]+\.?\d*)/i);
       const prixTotalMatch = text.match(/PRIX TOTAL\s*:\s*([\d\.,]+)/i);
 
-      // Nouveaux champs : Chauffeur
+      // Nouveaux champs : Conducteur
       const matriculeChauffeurMatch = text.match(/MATRICULE\s*:\s*CH(\d+)/i);
       const nomChauffeurMatch = text.match(/NOM\s*:\s*([A-ZÀ-Ÿ-]+)/i);
       const prenomChauffeurMatch = text.match(/PRENOM\s*:\s*([A-ZÀ-Ÿ-]+)/i);
@@ -247,6 +250,15 @@ export default function AjoutPleinForm() {
 
     if (!vehiculeId || !odometre || !litres || !prixTotal) {
       toast({ title: "Champs manquants", variant: "destructive" });
+      return;
+    }
+
+    if (isVehicleOutOfService(selectedVehicule)) {
+      toast({
+        title: "Véhicule indisponible",
+        description: getVehicleUnavailableReason(selectedVehicule),
+        variant: "destructive",
+      });
       return;
     }
 
@@ -389,12 +401,23 @@ export default function AjoutPleinForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {mesVehicules.map((v) => (
-                      <SelectItem key={v.id} value={v.id.toString()}>
+                      <SelectItem key={v.id} value={v.id.toString()} disabled={isVehicleOutOfService(v)}>
                         {v.immatriculation} - {v.marque} {v.modele}
+                        {isVehicleOutOfService(v) ? ' (hors service)' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedVehicule && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={getVehicleStatusBadgeVariant(selectedVehicule)}>
+                      {getVehicleStatusLabel(selectedVehicule)}
+                    </Badge>
+                    {isVehicleOutOfService(selectedVehicule) && (
+                      <span className="text-sm text-destructive">{getVehicleUnavailableReason(selectedVehicule)}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Date & Odomètre */}
@@ -531,7 +554,7 @@ export default function AjoutPleinForm() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createPlein.isPending || ocrExtractedData === null}
+                  disabled={createPlein.isPending || ocrExtractedData === null || isVehicleOutOfService(selectedVehicule)}
                   className="flex-1"
                 >
                   {createPlein.isPending
@@ -576,7 +599,7 @@ export default function AjoutPleinForm() {
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">
-                          Chauffeur (Matricule)
+                          Conducteur (Matricule)
                         </span>
                         <div className="flex items-center gap-3">
                           {ocrExtractedData.chauffeur.matricule !==

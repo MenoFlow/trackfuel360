@@ -139,7 +139,7 @@ export const hasPermission = (user: User | undefined, permission: string): boole
     admin: ['*'], // All permissions
     manager: ['view_dashboard', 'view_alerts', 'view_reports', 'manage_vehicles', 'manage_drivers'],
     supervisor: ['view_dashboard', 'view_alerts', 'view_reports', 'validate_corrections'],
-    driver: ['create_plein', 'view_own_data'],
+    conducteur: ['create_plein', 'view_own_data'],
     auditor: ['view_dashboard', 'view_alerts', 'view_reports', 'export_reports'],
   };
   

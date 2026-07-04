@@ -118,7 +118,7 @@ const Sidebar = ({ mobile = false, collapsed = false, onToggleCollapse, onLogout
       items: [
         { path: '/vehicules', label: t('nav.vehicles'), icon: Car, module: 'fleet', roles: ['admin', 'manager', 'supervisor'] },
         { path: '/affectations', label: t('assignments.title'), icon: User, module: 'fleet', roles: ['admin', 'manager', 'supervisor'] },
-        { path: '/chauffeurs', label: 'Chauffeurs', icon: User, module: 'drivers', roles: ['admin', 'manager', 'supervisor'] },
+        { path: '/chauffeurs', label: 'Conducteurs', icon: User, module: 'drivers', roles: ['admin', 'manager', 'supervisor'] },
         { path: '/missions', label: 'Missions', icon: ClipboardList, module: 'missions', roles: ['admin', 'manager', 'supervisor'] },
         { path: '/planning', label: 'Planning', icon: CalendarDays, module: 'planning', roles: ['admin', 'manager', 'supervisor'] },
       ],
@@ -296,7 +296,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         { path: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
         { path: '/vehicules', label: t('nav.vehicles'), icon: Car },
         { path: '/pleins', label: t('nav.fuel'), icon: Fuel },
-        { path: '/chauffeurs', label: 'Chauffeurs', icon: User },
+        { path: '/chauffeurs', label: 'Conducteurs', icon: User },
         { path: '/missions', label: 'Missions', icon: ClipboardList },
         { path: '/maintenance', label: 'Maintenance', icon: Wrench },
         { path: '/conformite', label: 'Conformite', icon: FileCheck },

@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     matricule VARCHAR(50) UNIQUE NOT NULL,
     nom VARCHAR(255) NOT NULL,
     prenom VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'manager', 'supervisor', 'driver', 'auditor') NOT NULL,
+    role ENUM('admin', 'manager', 'supervisor', 'conducteur', 'auditor') NOT NULL,
+    fonction ENUM('conducteur', 'directeur', 'assistant', 'responsable_flotte', 'mecanicien', 'comptable', 'autre') NOT NULL DEFAULT 'conducteur',
     site_id BIGINT,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -286,6 +287,7 @@ INSERT IGNORE INTO users (
     nom,
     prenom,
     role,
+    fonction,
     site_id,
     password_hash
 ) VALUES (
@@ -294,14 +296,15 @@ INSERT IGNORE INTO users (
     'Dupont',
     'Jean',
     'admin',
+    'directeur',
     1,
     '$2b$10$eImiTXuWVxfM37uY4JANjQ=='
 );
 
 INSERT IGNORE INTO users (
-    email, matricule, nom, prenom, role, site_id, password_hash
+    email, matricule, nom, prenom, role, fonction, site_id, password_hash
 ) VALUES (
-    'driver@example.com', 'DRV001', 'Chauffeur', 'Jean', 'driver', 1, 'hashed_password_driver'
+    'driver@example.com', 'DRV001', 'Conducteur', 'Jean', 'conducteur', 'conducteur', 1, 'hashed_password_driver'
 );
 
 -- MVP TrackFuel360 modulaire
@@ -325,7 +328,7 @@ CREATE TABLE IF NOT EXISTS modules (
 INSERT IGNORE INTO modules (code, label, phase, enabled_by_default) VALUES
 ('fuel', 'Carburant', 'MVP', TRUE),
 ('fleet', 'Parc roulant', 'MVP', TRUE),
-('drivers', 'Chauffeurs', 'MVP', TRUE),
+('drivers', 'Conducteurs', 'MVP', TRUE),
 ('missions', 'Ordres de mission', 'MVP', TRUE),
 ('maintenance', 'Maintenance de base', 'MVP', TRUE),
 ('documents', 'Documents et rappels', 'MVP', TRUE),
@@ -356,7 +359,7 @@ CREATE TABLE IF NOT EXISTS app_configuration (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS role_module_permissions (
-    role ENUM('admin', 'manager', 'supervisor', 'driver', 'auditor') NOT NULL,
+    role ENUM('admin', 'manager', 'supervisor', 'conducteur', 'auditor') NOT NULL,
     module_code VARCHAR(50) NOT NULL,
     can_view BOOLEAN NOT NULL DEFAULT TRUE,
     can_manage BOOLEAN NOT NULL DEFAULT FALSE,
@@ -403,8 +406,9 @@ INSERT IGNORE INTO role_module_permissions (role, module_code, can_view, can_man
 ('auditor', 'documents', TRUE, FALSE),
 ('auditor', 'reporting', TRUE, FALSE),
 ('auditor', 'budgets', TRUE, FALSE),
-('driver', 'fuel', TRUE, FALSE),
-('driver', 'missions', TRUE, FALSE);
+('conducteur', 'fuel', TRUE, FALSE),
+('conducteur', 'missions', TRUE, FALSE),
+('conducteur', 'maintenance', TRUE, FALSE);
 
 CREATE TABLE IF NOT EXISTS driver_profiles (
     user_id BIGINT PRIMARY KEY,

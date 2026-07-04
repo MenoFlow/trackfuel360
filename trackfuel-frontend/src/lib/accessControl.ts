@@ -1,6 +1,6 @@
 import { AppRole, User } from '@/types';
 
-export const APP_ROLES: AppRole[] = ['admin', 'manager', 'supervisor', 'driver', 'auditor'];
+export const APP_ROLES: AppRole[] = ['admin', 'manager', 'supervisor', 'conducteur', 'auditor'];
 
 export const roleIncludes = (currentRole?: string, allowedRoles?: AppRole[]) => {
   if (!allowedRoles || allowedRoles.length === 0) return true;
@@ -9,7 +9,9 @@ export const roleIncludes = (currentRole?: string, allowedRoles?: AppRole[]) => 
 
 export const getCurrentUser = (): User | null => {
   try {
-    return JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (user?.role === 'driver') user.role = 'conducteur';
+    return user;
   } catch {
     return null;
   }
@@ -35,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   manager: ['manage_users', 'manage_sites', 'manage_notifications', 'manage_corrections'],
   supervisor: ['manage_corrections'],
   auditor: ['manage_import_export'],
-  driver: [],
+  conducteur: [],
 };
 
 export const hasPermission = (user: User | null | undefined, permission: string) => {
