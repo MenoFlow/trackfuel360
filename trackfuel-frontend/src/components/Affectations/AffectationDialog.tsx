@@ -118,148 +118,150 @@ export const AffectationDialog = ({
         return;
       }
       toast.error(
-        affectation 
+        apiError.message || (affectation 
           ? t('assignments.errorUpdate') 
-          : t('assignments.errorCreation')
+          : t('assignments.errorCreation'))
       );
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
-            {affectation ? t('assignments.editAssignment') : t('assignments.newAssignment')}
-          </DialogTitle>
-          <DialogDescription>
-            {t('assignments.fillForm')}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {affectation ? t('assignments.editAssignment') : t('assignments.newAssignment')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('assignments.fillForm')}
+            </DialogDescription>
+          </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* VÉHICULE */}
-            <FormField
-              control={form.control}
-              name="vehicule_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('assignments.vehicle')}</FormLabel>
-                  <Select 
-                    onValueChange={(v) => field.onChange(Number(v))} 
-                    value={field.value?.toString()}
-                  >
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* VÉHICULE */}
+              <FormField
+                control={form.control}
+                name="vehicule_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('assignments.vehicle')}</FormLabel>
+                    <Select 
+                      onValueChange={(v) => field.onChange(Number(v))} 
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('assignments.selectVehicle')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {vehicules?.map((v) => (
+                          <SelectItem key={v.id} value={v.id.toString()}>
+                            {v.immatriculation} - {v.marque} {v.modele}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* CHAUFFEUR */}
+              <FormField
+                control={form.control}
+                name="chauffeur_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('assignments.driver')}</FormLabel>
+                    <Select 
+                      onValueChange={(v) => field.onChange(Number(v))} 
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('assignments.selectDriver')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {chauffeurs?.filter((c) => (c.role==="conducteur")).map((c) => (
+                          <SelectItem key={c.id} value={c.id.toString()}>
+                            {c.prenom} {c.nom} ({c.matricule})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* DATE DÉBUT */}
+              <FormField
+                control={form.control}
+                name="date_debut"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>{t('assignments.startDate')}</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('assignments.selectVehicle')} />
-                      </SelectTrigger>
+                      <Input
+                        type="datetime-local"
+                        value={toDateTimeLocal(field.value)}
+                        onChange={(event) => field.onChange(new Date(event.target.value))}
+                        max={dateDebut && form.watch('date_fin') ? toDateTimeLocal(form.watch('date_fin')) : undefined}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {vehicules?.map((v) => (
-                        <SelectItem key={v.id} value={v.id.toString()}>
-                          {v.immatriculation} - {v.marque} {v.modele}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* CHAUFFEUR */}
-            <FormField
-              control={form.control}
-              name="chauffeur_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('assignments.driver')}</FormLabel>
-                  <Select 
-                    onValueChange={(v) => field.onChange(Number(v))} 
-                    value={field.value?.toString()}
-                  >
+              {/* DATE FIN */}
+              <FormField
+                control={form.control}
+                name="date_fin"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>{t('assignments.endDate')}</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('assignments.selectDriver')} />
-                      </SelectTrigger>
+                      <Input
+                        type="datetime-local"
+                        value={toDateTimeLocal(field.value)}
+                        onChange={(event) => field.onChange(new Date(event.target.value))}
+                        min={dateDebut ? toDateTimeLocal(dateDebut) : undefined}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {chauffeurs?.filter((c) => (c.role==="conducteur")).map((c) => (
-                        <SelectItem key={c.id} value={c.id.toString()}>
-                          {c.prenom} {c.nom} ({c.matricule})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* DATE DÉBUT */}
-            <FormField
-              control={form.control}
-              name="date_debut"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>{t('assignments.startDate')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="datetime-local"
-                      value={toDateTimeLocal(field.value)}
-                      onChange={(event) => field.onChange(new Date(event.target.value))}
-                      max={dateDebut && form.watch('date_fin') ? toDateTimeLocal(form.watch('date_fin')) : undefined}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createAffectation.isPending || updateAffectation.isPending}
+                >
+                  {createAffectation.isPending || updateAffectation.isPending
+                    ? t('common.saving')
+                    : t('common.save')
+                  }
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
-            {/* DATE FIN */}
-            <FormField
-              control={form.control}
-              name="date_fin"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>{t('assignments.endDate')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="datetime-local"
-                      value={toDateTimeLocal(field.value)}
-                      onChange={(event) => field.onChange(new Date(event.target.value))}
-                      min={dateDebut ? toDateTimeLocal(dateDebut) : undefined}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createAffectation.isPending || updateAffectation.isPending}
-              >
-                {createAffectation.isPending || updateAffectation.isPending
-                  ? t('common.saving')
-                  : t('common.save')
-                }
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-
-        <AvailabilityConflictDialog
-          open={Boolean(availabilityConflict)}
-          onOpenChange={(isOpen) => !isOpen && setAvailabilityConflict(null)}
-          availability={availabilityConflict}
-        />
-      </DialogContent>
-    </Dialog>
+      <AvailabilityConflictDialog
+        open={Boolean(availabilityConflict)}
+        onOpenChange={(isOpen) => !isOpen && setAvailabilityConflict(null)}
+        availability={availabilityConflict}
+      />
+    </>
   );
 };
