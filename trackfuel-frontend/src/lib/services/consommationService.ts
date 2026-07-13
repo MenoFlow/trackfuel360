@@ -108,12 +108,12 @@ export function calculerStatistiquesConsommation(
         : 0;
       
       return {
-        vehicule_id: vehicule.immatriculation,
+        vehicule_id: String(vehicule.id),
         immatriculation: vehicule.immatriculation,
         consommation: Number(consoMoyenne.toFixed(1)),
-        ecart_pourcentage: Number(ecart_pourcentage.toFixed(4))
+        ecart_pourcentage: Number(ecart_pourcentage.toFixed(1))
       };
     })
-    .filter(v => v.consommation > 0)
+    .filter(v => v.consommation > 0 && v.ecart_pourcentage > 0)
     .sort((a, b) => b.ecart_pourcentage - a.ecart_pourcentage);
 }

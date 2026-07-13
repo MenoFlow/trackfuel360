@@ -185,14 +185,6 @@ const Dashboard = () => {
           </div>
         </MotionWrapper>
 
-        <MotionWrapper variant="slideUp" delay={0.05}>
-          <AlertCenter
-            alerts={dashboardAlerts}
-            isRefreshing={isFetchingMaintenance || isFetchingCorrections}
-            onOpen={(alert) => navigate(alert.destination)}
-          />
-        </MotionWrapper>
-
         {/* Stats principales */}
         <motion.div 
           className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
@@ -282,6 +274,15 @@ const Dashboard = () => {
           <FleetMap vehicles={vehicules} onVehicleSelect={(v) => navigate(`/vehicle/${v.id}`)} />
         </motion.div>
 
+        <MotionWrapper variant="slideUp" delay={0.35}>
+          <AlertCenter
+            alerts={dashboardAlerts}
+            isRefreshing={isFetchingMaintenance || isFetchingCorrections}
+            onOpen={(alert) => navigate(alert.destination)}
+            onViewAll={() => navigate('/alertes')}
+          />
+        </MotionWrapper>
+
         {/* Top véhicules à forte consommation */}
         <MotionWrapper variant="slideUp" delay={0.4}>
           <Card>
@@ -298,7 +299,7 @@ const Dashboard = () => {
                 initial="initial"
                 animate="animate"
               >
-                {stats?.top_vehicules_consommation.map((v, index) => (
+                {stats?.top_vehicules_consommation.map((v) => (
                   <motion.div 
                     key={v.vehicule_id} 
                     variants={staggerItem}
@@ -316,6 +317,11 @@ const Dashboard = () => {
                     </Badge>
                   </motion.div>
                 ))}
+                {stats?.top_vehicules_consommation.length === 0 && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Aucun véhicule ne dépasse sa consommation nominale sur les 30 derniers jours.
+                  </p>
+                )}
               </motion.div>
             </CardContent>
           </Card>
