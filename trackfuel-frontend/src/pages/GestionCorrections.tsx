@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useCurrentUser, useUsers } from '@/hooks/useUsers';
 import { useCorrections, useValidateCorrection, useRejectCorrection } from '@/hooks/useCorrections';
 import { usePleins } from '@/hooks/usePleins';
@@ -32,8 +32,12 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useToast } from '@/hooks/use-toast';
 import { hasPermission } from '@/hooks/useUsers';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
 const GestionCorrections = () => {
+  const [searchParams] = useSearchParams();
+  const directCorrectionId = Number(searchParams.get('correction')) || null;
+  const directCorrectionHandled = useRef<number | null>(null);
   const { t } = useTranslation();
   const { data: currentUser } = useCurrentUser();
   const { data: corrections, isLoading: isLoadingCorrections } = useCorrections();
@@ -94,7 +98,7 @@ const GestionCorrections = () => {
   //   }
   // }
 
-  const handleOpenDetails = (correction: Correction) => {
+  const handleOpenDetails = useCallback((correction: Correction) => {
     setSelectedCorrection(correction);
     // Calculer la validation si c'est une correction de plein
     if (correction.table === 'pleins') {
@@ -110,7 +114,20 @@ const GestionCorrections = () => {
     }
     
     setDetailsOpen(true);
-  };
+  }, [pleins, vehicules]);
+
+  useEffect(() => {
+    if (!directCorrectionId || directCorrectionHandled.current === directCorrectionId || !corrections?.length) return;
+    const correction = corrections.find(item => item.id === directCorrectionId);
+    if (!correction) return;
+
+    directCorrectionHandled.current = directCorrectionId;
+    setStatusFilter('all');
+    setVehiculeFilter('all');
+    setChauffeurFilter('all');
+    setCurrentPage(Math.floor(corrections.findIndex(item => item.id === directCorrectionId) / 5) + 1);
+    handleOpenDetails(correction);
+  }, [directCorrectionId, corrections, handleOpenDetails]);
 
   const handleValidate = async (correctionId: number, comment: string) => {
     try {

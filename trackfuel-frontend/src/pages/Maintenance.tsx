@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { Wrench, Plus, Filter, Play, CheckCircle2 } from 'lucide-react';
 import { MotionWrapper } from '@/components/Layout/MotionWrapper';
 import { toast } from 'sonner';
 import { useVehicules } from '@/hooks/useVehicules';
+import { useSearchParams } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
 
@@ -55,6 +56,8 @@ const STATUT_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 const Maintenance = () => {
+  const [searchParams] = useSearchParams();
+  const highlightedInterventionId = Number(searchParams.get('intervention')) || null;
   const queryClient = useQueryClient();
   const { data: vehicules = [] } = useVehicules();
   const { data: interventions = [], isLoading } = useQuery({
@@ -130,6 +133,23 @@ const Maintenance = () => {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  useEffect(() => {
+    if (!highlightedInterventionId || interventions.length === 0) return;
+
+    setTypeFilter('all');
+    setStatutFilter('all');
+    const itemIndex = interventions.findIndex((item: { id: number }) => item.id === highlightedInterventionId);
+    if (itemIndex >= 0) setCurrentPage(Math.floor(itemIndex / itemsPerPage) + 1);
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(`intervention-${highlightedInterventionId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [highlightedInterventionId, interventions]);
 
   const resetForm = () => {
     setForm({ type: 'revision', statut: 'planifie' });
@@ -281,7 +301,13 @@ const Maintenance = () => {
                       {paginated.map((item: any) => {
                         const config = STATUT_CONFIG[item.statut] || STATUT_CONFIG.planifie;
                         return (
-                          <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
+                          <TableRow
+                            key={item.id}
+                            id={`intervention-${item.id}`}
+                            className={item.id === highlightedInterventionId
+                              ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-500 transition-colors'
+                              : 'hover:bg-muted/50 transition-colors'}
+                          >
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div className="p-1.5 bg-primary/10 rounded-md">

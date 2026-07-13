@@ -16,8 +16,19 @@ import { useVehicules } from '@/hooks/useVehicules';
 import { generateAlertes } from '@/lib/services/alerteService';
 import { useQuery } from '@tanstack/react-query';
 import { getVehicleStatusLabel, isVehicleOutOfService } from '@/lib/vehicleStatus';
+import { AlertCenter, DashboardAlertItem } from '@/components/Dashboard/AlertCenter';
+import { Alerte, Correction } from '@/types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string;
+
+interface MaintenanceIntervention {
+  id: number;
+  statut: 'planifie' | 'en_cours' | 'termine' | 'annule';
+  type: string;
+  description?: string;
+  immatriculation?: string;
+  date_prevue?: string;
+}
 
 export function formatNumberShort(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'B';
@@ -54,27 +65,102 @@ const Dashboard = () => {
   const stats = dashboardStats;
   const navigate = useNavigate();
   const { data: vehiculesApi = [] } = useVehicules();
-  const { data: interventions = [] } = useQuery({
+  const { data: interventions = [], isFetching: isFetchingMaintenance } = useQuery<MaintenanceIntervention[]>({
     queryKey: ['maintenance'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/api/maintenance`);
       if (!res.ok) throw new Error('Erreur chargement maintenance');
       return res.json();
     },
+    refetchInterval: 30_000,
   });
-  const { data: corrections = [] } = useQuery({
+  const { data: corrections = [], isFetching: isFetchingCorrections } = useQuery<Correction[]>({
     queryKey: ['corrections'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/api/corrections`);
       if (!res.ok) throw new Error('Erreur chargement corrections');
       return res.json();
     },
+    refetchInterval: 30_000,
   });
 
   const vehiculesHorsService = vehiculesApi.filter((v) => isVehicleOutOfService(v));
-  const maintenancesEnCours = interventions.filter((item: any) => item.statut === 'en_cours');
-  const maintenancesPlanifiees = interventions.filter((item: any) => item.statut === 'planifie');
-  const correctionsEnAttente = corrections.filter((item: any) => item.status === 'pending');
+  const maintenancesEnCours = interventions.filter(item => item.statut === 'en_cours');
+  const maintenancesPlanifiees = interventions.filter(item => item.statut === 'planifie');
+  const correctionsEnAttente = corrections.filter(item => item.status === 'pending');
+
+  const getPleinIdForAlerte = (alerte: Alerte) => {
+    const pleinIdFromAlert = Number(alerte.id.match(/_(\d+)$/)?.[1]);
+    if (pleinIdFromAlert && pleins.some(plein => plein.id === pleinIdFromAlert)) return pleinIdFromAlert;
+
+    return pleins.find(plein =>
+      plein.vehicule_id === alerte.vehicule_id &&
+      new Date(plein.date).toDateString() === new Date(alerte.date_detection).toDateString()
+    )?.id;
+  };
+
+  const dashboardAlerts: DashboardAlertItem[] = [
+    ...alertes
+      .filter(alerte => alerte.status === 'new' || alerte.status === 'in_progress')
+      .map((alerte): DashboardAlertItem => {
+        const pleinId = getPleinIdForAlerte(alerte);
+        const isFuelAlert = ['plein_suspect', 'plein_hors_zone', 'bon_carburant_suspect', 'carburant_disparu'].includes(alerte.type);
+        return {
+          id: `detection-${alerte.id}`,
+          title: alerte.titre,
+          description: alerte.description,
+          destination: isFuelAlert && pleinId ? `/pleins/${pleinId}` : `/vehicle/${alerte.vehicule_id}`,
+          actionLabel: isFuelAlert && pleinId ? 'Voir le plein' : 'Voir le véhicule',
+          source: 'Détection',
+          priority: alerte.score >= 80 ? 'critical' : alerte.score >= 60 ? 'warning' : 'info',
+          timestamp: new Date(alerte.date_detection).toLocaleString('fr-FR'),
+        };
+      }),
+    ...maintenancesEnCours.map((item): DashboardAlertItem => ({
+      id: `maintenance-${item.id}`,
+      title: `${item.immatriculation || 'Véhicule'} · ${item.type}`,
+      description: item.description || 'Intervention de maintenance en cours.',
+      destination: `/maintenance?intervention=${item.id}`,
+      actionLabel: 'Gérer l’intervention',
+      source: 'Maintenance',
+      priority: 'critical',
+      timestamp: item.date_prevue ? new Date(item.date_prevue).toLocaleDateString('fr-FR') : undefined,
+    })),
+    ...maintenancesPlanifiees.map((item): DashboardAlertItem => ({
+      id: `maintenance-${item.id}`,
+      title: `${item.immatriculation || 'Véhicule'} · ${item.type}`,
+      description: item.description || 'Intervention de maintenance planifiée.',
+      destination: `/maintenance?intervention=${item.id}`,
+      actionLabel: 'Voir l’intervention',
+      source: 'Maintenance',
+      priority: 'warning',
+      timestamp: item.date_prevue ? new Date(item.date_prevue).toLocaleDateString('fr-FR') : undefined,
+    })),
+    ...vehiculesHorsService
+      .filter(vehicule => !vehicule.maintenance_en_cours_id)
+      .map((vehicule): DashboardAlertItem => ({
+        id: `vehicle-${vehicule.id}`,
+        title: `${vehicule.immatriculation || 'Véhicule'} indisponible`,
+        description: `${vehicule.marque} ${vehicule.modele} · ${getVehicleStatusLabel(vehicule)}`,
+        destination: `/vehicle/${vehicule.id}`,
+        actionLabel: 'Ouvrir la fiche',
+        source: 'Flotte',
+        priority: 'critical',
+      })),
+    ...correctionsEnAttente.map((correction): DashboardAlertItem => ({
+      id: `correction-${correction.id}`,
+      title: `Correction #${correction.id} à valider`,
+      description: `${correction.table} · ${correction.champ} : ${correction.old_value} → ${correction.new_value}`,
+      destination: `/parametres/corrections?correction=${correction.id}`,
+      actionLabel: 'Examiner la demande',
+      source: 'Correction',
+      priority: 'warning',
+      timestamp: correction.requested_at ? new Date(correction.requested_at).toLocaleString('fr-FR') : undefined,
+    })),
+  ].sort((a, b) => {
+    const order = { critical: 0, warning: 1, info: 2 };
+    return order[a.priority] - order[b.priority];
+  });
   
   // if (false) {
   //   return (
@@ -99,6 +185,14 @@ const Dashboard = () => {
           </div>
         </MotionWrapper>
 
+        <MotionWrapper variant="slideUp" delay={0.05}>
+          <AlertCenter
+            alerts={dashboardAlerts}
+            isRefreshing={isFetchingMaintenance || isFetchingCorrections}
+            onOpen={(alert) => navigate(alert.destination)}
+          />
+        </MotionWrapper>
+
         {/* Stats principales */}
         <motion.div 
           className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
@@ -117,7 +211,7 @@ const Dashboard = () => {
           <MotionWrapper variant="stagger" delay={0.1}>
             <StatsCard
               title={t('dashboard.stats.activeAlerts')}
-              value={stats?.alertes_actives || 0}
+              value={dashboardAlerts.length}
               icon={AlertTriangle}
               subtitle={t('dashboard.requiresAction')}
             />
@@ -172,10 +266,10 @@ const Dashboard = () => {
           </MotionWrapper>
           <MotionWrapper variant="stagger" delay={0.3}>
             <StatsCard
-              title="Alertes visibles"
-              value={alertes?.length || 0}
+              title="Incidents critiques"
+              value={dashboardAlerts.filter(alert => alert.priority === 'critical').length}
               icon={AlertTriangle}
-              subtitle="toutes sources confondues"
+              subtitle="à traiter en priorité"
             />
           </MotionWrapper>
         </motion.div>
@@ -187,64 +281,6 @@ const Dashboard = () => {
         >
           <FleetMap vehicles={vehicules} onVehicleSelect={(v) => navigate(`/vehicle/${v.id}`)} />
         </motion.div>
-
-        <MotionWrapper variant="slideUp" delay={0.35}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5" />
-                  Maintenance à surveiller
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {[...maintenancesEnCours, ...maintenancesPlanifiees].slice(0, 5).length > 0 ? (
-                  <div className="space-y-3">
-                    {[...maintenancesEnCours, ...maintenancesPlanifiees].slice(0, 5).map((item: any) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                        <div>
-                          <p className="font-medium">{item.immatriculation || 'Véhicule'} - {item.type}</p>
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
-                        </div>
-                        <Badge variant={item.statut === 'en_cours' ? 'destructive' : 'outline'}>
-                          {item.statut === 'en_cours' ? 'En cours' : 'Planifiée'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">Aucune maintenance critique.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Car className="h-5 w-5" />
-                  Véhicules indisponibles
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {vehiculesHorsService.length > 0 ? (
-                  <div className="space-y-3">
-                    {vehiculesHorsService.slice(0, 5).map((vehicule) => (
-                      <div key={vehicule.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                        <div>
-                          <p className="font-medium">{vehicule.immatriculation}</p>
-                          <p className="text-sm text-muted-foreground">{vehicule.marque} {vehicule.modele}</p>
-                        </div>
-                        <Badge variant="destructive">{getVehicleStatusLabel(vehicule)}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">Toute la flotte est disponible.</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </MotionWrapper>
 
         {/* Top véhicules à forte consommation */}
         <MotionWrapper variant="slideUp" delay={0.4}>
@@ -285,54 +321,6 @@ const Dashboard = () => {
           </Card>
         </MotionWrapper>
 
-        {/* Alertes récentes */}
-        <MotionWrapper variant="slideUp" delay={0.5}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                {t('dashboard.recentAlerts')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {false ? (
-                <div className="space-y-3">
-                  {[1, 2].map(i => <Skeleton key={i} className="h-20" />)}
-                </div>
-              ) : alertes && alertes.length > 0 ? (
-                <motion.div 
-                  className="space-y-3"
-                  variants={staggerContainer}
-                  initial="initial"
-                  animate="animate"
-                >
-                  {alertes.slice(0, 5).map((alerte) => (
-                    <motion.div 
-                      key={alerte.id} 
-                      variants={staggerItem}
-                      className="p-3 border border-border rounded-lg"
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-2">
-                        <div className="flex-1 w-full">
-                          <p className="font-medium text-foreground">{alerte.titre}</p>
-                          <p className="text-sm text-muted-foreground mt-1">{alerte.description}</p>
-                        </div>
-                        <Badge 
-                          variant={alerte.score > 70 ? "destructive" : "secondary"}
-                          className="sm:ml-2 flex-shrink-0"
-                        >
-                          {t('dashboard.score')}: {alerte.score}
-                        </Badge>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">{t('dashboard.noActiveAlerts')}</p>
-              )}
-            </CardContent>
-          </Card>
-        </MotionWrapper>
       </div>
     </MainLayout>
   );
